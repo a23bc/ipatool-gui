@@ -290,8 +290,12 @@ export class EngineManager extends EventEmitter {
   /**
    * Downloads, verifies and installs ipatool. Emits progress through the
    * `status` event so the UI can show a real percentage.
+   *
+   * When `force` is false and the resolved version is already the running
+   * binary, nothing is downloaded - the current status is returned. The UI
+   * uses `force` after asking "already installed, download again?".
    */
-  async install(version = ''): Promise<EngineStatus> {
+  async install(version = '', force = false): Promise<EngineStatus> {
     if (this.installing) return this.installing
 
     this.installing = (async () => {
@@ -306,10 +310,19 @@ export class EngineManager extends EventEmitter {
       }
 
       try {
-        this.set(status('downloading', { download: { received: 0, total: null, percent: null, phase: 'resolve' } }))
-
         const resolved = await this.resolveVersion(version)
         const tag = resolved.version
+
+        if (!force) {
+          const current = await this.detect()
+          if (current.state === 'ready' && current.path && current.version === tag) {
+            // That exact build is already installed - do not re-download.
+            return current
+          }
+        }
+
+        this.set(status('downloading', { download: { received: 0, total: null, percent: null, phase: 'resolve' } }))
+
         const urls = this.assetUrls(tag)
 
         if (!urls) {

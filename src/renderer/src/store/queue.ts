@@ -112,7 +112,15 @@ export const useQueueStore = create<QueueState>()((set, get) => ({
           ...(item.outputPath
             ? {
                 actionLabel: t('downloads.action.reveal'),
-                onAction: () => void window.api.reveal(item.outputPath as string)
+                onAction: () => {
+                  void window.api.exists(item.outputPath as string).then((ok) => {
+                    if (!ok) {
+                      useUiStore.getState().toast({ kind: 'error', message: t('toast.fileMissing') })
+                      return
+                    }
+                    void window.api.reveal(item.outputPath as string)
+                  })
+                }
               }
             : {})
         })
@@ -197,7 +205,14 @@ export const useQueueStore = create<QueueState>()((set, get) => ({
   openFolder(item) {
     const target = item?.outputDir ?? useAppStore.getState().settings.downloadDir
     if (item?.outputPath) {
-      void window.api.reveal(item.outputPath)
+      void window.api.exists(item.outputPath).then((ok) => {
+        if (!ok) {
+          const { t } = useAppStore.getState()
+          useUiStore.getState().toast({ kind: 'error', message: t('toast.fileMissing') })
+          return
+        }
+        void window.api.reveal(item.outputPath as string)
+      })
       return
     }
     if (target) {

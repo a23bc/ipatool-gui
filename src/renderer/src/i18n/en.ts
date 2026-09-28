@@ -462,11 +462,16 @@ export const en = {
   'toast.settingsReset': 'Settings reset to defaults',
   'toast.engineInstalled': 'ipatool {version} installed',
   'toast.engineFailed': 'Could not set up ipatool',
+  'toast.engineAlready': 'ipatool {version} is already installed - skipped download',
+  'engine.reinstall.title': 'ipatool is already installed',
+  'engine.reinstall.body': 'ipatool {version} is already on this machine. Download and install it again?',
+  'engine.reinstall.ok': 'Download again',
   'toast.signedOut': 'Signed out',
   'toast.imported': 'Imported {n} entries',
   'toast.importEmpty': 'Nothing recognisable in that file',
   'toast.needSignIn': 'Sign in to the App Store first',
   'toast.needEngine': 'ipatool is not available yet',
+  'toast.fileMissing': 'File not found — it may have been moved or deleted',
 
   /* ---------------- errors ---------------- */
   'error.title': 'Something went wrong',

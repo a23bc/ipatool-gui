@@ -40,7 +40,9 @@ function AccountRow({ view, onPick }: { view: AccountView; onPick: (id: string) 
           {view.signedIn ? view.email : t('accounts.row.noSession')}
         </span>
       </span>
-      {view.active ? <Icon name="check" size={13} /> : null}
+      <span className="flex h-[13px] w-[13px] shrink-0 items-center justify-center" aria-hidden="true">
+        {view.active ? <Icon name="check" size={13} /> : null}
+      </span>
     </button>
   )
 }

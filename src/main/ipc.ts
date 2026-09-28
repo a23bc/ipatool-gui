@@ -189,7 +189,9 @@ export function registerIpc(): void {
 
   ipcMain.handle(IPC.EngineStatus, () => engineManager.state)
   ipcMain.handle(IPC.EngineDetect, (_e, force?: boolean) => engineManager.detect(force === true))
-  ipcMain.handle(IPC.EngineInstall, (_e, version?: string) => engineManager.install(version ?? ''))
+  ipcMain.handle(IPC.EngineInstall, (_e, version?: string, force?: boolean) =>
+    engineManager.install(version ?? '', force === true)
+  )
   ipcMain.handle(IPC.EngineUninstall, () => engineManager.uninstall())
   ipcMain.handle(IPC.EngineReleases, () =>
     wrap(() => engineManager.releases(30))

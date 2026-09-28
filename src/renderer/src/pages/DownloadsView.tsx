@@ -5,6 +5,7 @@ import { IPATOOL_ERROR_CODES } from '@shared/ipatool/errors'
 import type { IconName } from '@renderer/components/Icon'
 import { useAppStore } from '@renderer/store/app'
 import { useQueueStore } from '@renderer/store/queue'
+import { useTasksStore } from '@renderer/store/tasks'
 import { useUiStore } from '@renderer/store/ui'
 import { AppIcon } from '@renderer/components/AppIcon'
 import { QueueStateBadge } from '@renderer/components/Badges'
@@ -133,12 +134,26 @@ const DownloadRow = memo(function DownloadRow({ item }: RowProps): ReactNode {
 
         {item.state === 'done' && item.outputPath
           ? [
-              actionButton('reveal', 'folder', t('downloads.action.reveal'), () =>
-                void window.api.reveal(item.outputPath as string)
-              ),
+              actionButton('reveal', 'folder', t('downloads.action.reveal'), () => {
+                const target = item.outputPath as string
+                void window.api.exists(target).then((ok) => {
+                  if (!ok) {
+                    toast({ kind: 'error', message: t('toast.fileMissing') })
+                    return
+                  }
+                  void window.api.reveal(target)
+                })
+              }),
               actionButton('open', 'external', t('downloads.action.open'), () => {
-                window.api.openPath(item.outputPath as string).catch((error: unknown) => {
-                  toast({ kind: 'error', message: String(error) })
+                const target = item.outputPath as string
+                void window.api.exists(target).then((ok) => {
+                  if (!ok) {
+                    toast({ kind: 'error', message: t('toast.fileMissing') })
+                    return
+                  }
+                  window.api.openPath(target).catch((error: unknown) => {
+                    toast({ kind: 'error', message: String(error) })
+                  })
                 })
               }),
               actionButton('copy-path', 'copy', t('downloads.action.copyPath'), () => {
@@ -149,7 +164,10 @@ const DownloadRow = memo(function DownloadRow({ item }: RowProps): ReactNode {
           : null}
 
         {item.taskId
-          ? actionButton('activity', 'activity', t('nav.activity'), () => setView('activity'))
+          ? actionButton('activity', 'activity', t('nav.activity'), () => {
+              useTasksStore.getState().select(item.taskId)
+              setView('activity')
+            })
           : null}
 
         {busy

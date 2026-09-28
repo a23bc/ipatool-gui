@@ -96,7 +96,8 @@ const api: RendererApi = {
 
   getEngineStatus: (): Promise<EngineStatus> => ipcRenderer.invoke(IPC.EngineStatus),
   detectEngine: (force?: boolean): Promise<EngineStatus> => ipcRenderer.invoke(IPC.EngineDetect, force),
-  installEngine: (version?: string): Promise<EngineStatus> => ipcRenderer.invoke(IPC.EngineInstall, version),
+  installEngine: (version?: string, force?: boolean): Promise<EngineStatus> =>
+    ipcRenderer.invoke(IPC.EngineInstall, version, force),
   listEngineReleases: (): Promise<Operation<EngineRelease[]>> => ipcRenderer.invoke(IPC.EngineReleases),
   uninstallEngine: (): Promise<EngineStatus> => ipcRenderer.invoke(IPC.EngineUninstall),
   checkAppUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(IPC.AppCheckUpdate),

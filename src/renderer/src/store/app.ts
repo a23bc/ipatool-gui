@@ -56,7 +56,7 @@ export interface AppState {
   updateSettings: (patch: Partial<Settings>) => Promise<void>
   resetSettings: () => Promise<void>
   detectEngine: (force?: boolean) => Promise<EngineStatus>
-  installEngine: (version?: string) => Promise<EngineStatus>
+  installEngine: (version?: string, force?: boolean) => Promise<EngineStatus>
   uninstallEngine: () => Promise<EngineStatus>
   refreshAccount: (accountId?: string) => Promise<AccountInfo | null>
   revokeAccount: (accountId?: string) => Promise<boolean>
@@ -259,8 +259,24 @@ export const useAppStore = create<AppState>()((set, get) => ({
     return engine
   },
 
-  async installEngine(version) {
-    const engine = await window.api.installEngine(version)
+  async installEngine(version, force) {
+    // Manual installs ask before clobbering a working binary. `force: true`
+    // skips the prompt (the caller already confirmed); `force: false` is used
+    // by paths that must never block on a dialog.
+    if (force === undefined) {
+      const existing = get().engine
+      const t = get().t
+      if (existing.state === 'ready' && existing.version) {
+        const ok = await useUiStore.getState().askConfirm({
+          title: t('engine.reinstall.title'),
+          body: t('engine.reinstall.body', { version: existing.version }),
+          confirmLabel: t('engine.reinstall.ok')
+        })
+        if (!ok) return existing
+        force = true
+      }
+    }
+    const engine = await window.api.installEngine(version, force === true)
     set({ engine })
     return engine
   },

@@ -197,7 +197,7 @@ export interface RendererApi {
   /* --- engine ----------------------------------------------------- */
   getEngineStatus(): Promise<EngineStatus>
   detectEngine(force?: boolean): Promise<EngineStatus>
-  installEngine(version?: string): Promise<EngineStatus>
+  installEngine(version?: string, force?: boolean): Promise<EngineStatus>
   listEngineReleases(): Promise<Operation<EngineRelease[]>>
   uninstallEngine(): Promise<EngineStatus>
   checkAppUpdate(): Promise<UpdateCheckResult>
