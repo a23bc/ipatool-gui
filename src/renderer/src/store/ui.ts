@@ -78,15 +78,35 @@ export interface UiState {
 let toastId = 0
 const timers = new Map<number, ReturnType<typeof setTimeout>>()
 
+/** OS caption buttons sit above our scrim; dim them while any modal is up. */
+function syncChromeDimmed(get: () => UiState): void {
+  const state = get()
+  const dimmed = state.paletteOpen || state.authOpen || state.confirm !== null
+  try {
+    window.api.setChromeDimmed(dimmed)
+  } catch {
+    /* preview / tests without a preload bridge */
+  }
+}
+
 export const useUiStore = create<UiState>()((set, get) => ({
   view: 'search',
-  setView: (view) => set({ view, paletteOpen: false }),
+  setView: (view) => {
+    set({ view, paletteOpen: false })
+    syncChromeDimmed(get)
+  },
 
   paletteOpen: false,
-  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  setPaletteOpen: (paletteOpen) => {
+    set({ paletteOpen })
+    syncChromeDimmed(get)
+  },
 
   authOpen: false,
-  setAuthOpen: (authOpen) => set({ authOpen }),
+  setAuthOpen: (authOpen) => {
+    set({ authOpen })
+    syncChromeDimmed(get)
+  },
 
   accountsOpen: false,
   setAccountsOpen: (accountsOpen) => set({ accountsOpen }),
@@ -102,11 +122,13 @@ export const useUiStore = create<UiState>()((set, get) => ({
       const current = get().confirm
       if (current) current.resolve(false)
       set({ confirm: { ...request, resolve } })
+      syncChromeDimmed(get)
     }),
   resolveConfirm: (ok) => {
     const current = get().confirm
     set({ confirm: null })
     current?.resolve(ok)
+    syncChromeDimmed(get)
   },
 
   toasts: [],

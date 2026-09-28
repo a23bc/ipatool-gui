@@ -40,6 +40,12 @@ if (!gotLock) {
 }
 
 async function bootstrap(): Promise<void> {
+  // Windows notifications are scoped to an AppUserModelID; without this they
+  // silently never appear. Keep it equal to electron-builder's appId.
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('dev.ipatoolgui.desktop')
+  }
+
   await app.whenReady()
 
   const settings = await settingsStore.load()

@@ -27,7 +27,7 @@ import { IPC } from '../shared/ipc'
 import { quoteCommand } from '../shared/format'
 import { redactArgs } from '../shared/redact'
 import { parseImportList } from '../shared/import'
-import { notificationBody } from '../shared/notifications'
+import { notificationCopy } from '../shared/notifications'
 import { expandUserPath } from './paths'
 import { AccountError, accounts, assertAccountId } from './accounts'
 import { ApiError, ipatoolApi } from './api'
@@ -559,6 +559,9 @@ export function registerIpc(): void {
     else win.maximize()
   })
   ipcMain.on(IPC.WindowClose, () => mainWindow()?.close())
+  ipcMain.on(IPC.WindowSetChromeDimmed, (_e, dimmed: boolean) => {
+    syncTitleBarOverlay(mainWindow(), dimmed === true)
+  })
 }
 
 /** Applies side effects whenever settings change. */
@@ -584,11 +587,26 @@ export function registerEventForwarding(): void {
   downloadQueue.on('item-finished', (item: QueueItem) => {
     broadcast('queue:item-finished', item)
     if (!settingsStore.getInternal().notifyOnComplete) return
+
+    // Taskbar flash: the native attention cue when the window is in the background.
+    const win = mainWindow()
+    if (win && !win.isDestroyed() && !win.isFocused()) {
+      try {
+        win.flashFrame(true)
+        win.once('focus', () => {
+          if (!win.isDestroyed()) win.flashFrame(false)
+        })
+      } catch {
+        /* flash is best effort */
+      }
+    }
+
     if (!Notification.isSupported()) return
     try {
+      const copy = notificationCopy(item, settingsStore.getInternal().locale || 'en')
       const notification = new Notification({
-        title: item.state === 'done' ? 'Download complete' : 'Download failed',
-        body: notificationBody(item),
+        title: copy.title,
+        body: copy.body,
         silent: item.state === 'done'
       })
       notification.on('click', () => {

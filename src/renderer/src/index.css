@@ -267,9 +267,10 @@ body {
  * unlayered, so `.input { width: 100%; height: 30px }` beats every `w-*` /
  * `h-*`. Keep concrete box sizes here. */
 .input-number {
-  width: 52px;
   height: 26px;
   text-align: center;
+  /* Width is set inline from the value's digit count; a fixed px here used
+     to clip 2000 and 50000. */
 }
 .input-w-xs {
   width: 70px;
