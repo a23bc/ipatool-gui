@@ -111,20 +111,29 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
 }
 
 /** Keeps the Windows caption buttons in sync with the app theme. */
-export function syncTitleBarOverlay(win: BrowserWindow | null, dimmed = false): void {
+export function syncTitleBarOverlay(win: BrowserWindow | null, modal = false): void {
   if (!win || process.platform !== 'win32') return
   try {
     const dark = nativeTheme.shouldUseDarkColors
-    // When a modal scrim is up, the OS caption buttons sit on top of the blur
-    // and stay fully lit - jarring. Dim the overlay to match the scrim instead
-    // of blurring the buttons (which would make them unreadable).
-    const baseBg = dark ? '#101014' : '#ffffff'
-    const baseFg = dark ? '#c9c9d1' : '#3a3a42'
-    win.setTitleBarOverlay({
-      color: dimmed ? (dark ? '#08080c' : '#c8c8ce') : baseBg,
-      symbolColor: dimmed ? (dark ? '#6b6b78' : '#7a7a86') : baseFg,
-      height: 36
-    })
+    // Modal scrim is a dark blur over the page. The OS caption buttons are
+    // drawn above it - we cannot blur them, so instead we paint their
+    // background to match the scrim and leave the glyphs at normal contrast
+    // (blurring/dimming the icons would make them hard to hit).
+    const color = modal
+      ? dark
+        ? '#1a1a22'
+        : '#4a4a55'
+      : dark
+        ? '#101014'
+        : '#ffffff'
+    const symbolColor = modal
+      ? dark
+        ? '#e8e8ef'
+        : '#ffffff'
+      : dark
+        ? '#c9c9d1'
+        : '#3a3a42'
+    win.setTitleBarOverlay({ color, symbolColor, height: 36 })
   } catch {
     /* older Electron builds without overlay support */
   }

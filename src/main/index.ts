@@ -45,6 +45,7 @@ async function bootstrap(): Promise<void> {
   if (process.platform === 'win32') {
     app.setAppUserModelId('dev.ipatoolgui.desktop')
   }
+  app.setName('IPATool GUI')
 
   await app.whenReady()
 

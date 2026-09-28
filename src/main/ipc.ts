@@ -8,6 +8,7 @@
  */
 
 import { BrowserWindow, clipboard, dialog, ipcMain, shell, nativeTheme, app, Notification } from 'electron'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type {
@@ -44,6 +45,26 @@ export function broadcast<T>(channel: string, payload: T): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload)
   }
+}
+
+/**
+ * Icon for OS toasts. Windows falls back to the executable's icon when no png
+ * is packaged next to the app; without an explicit icon the toast looks blank.
+ */
+function notificationIconPath(): string | undefined {
+  const candidates = [
+    path.join(process.resourcesPath, 'icon.png'),
+    path.join(app.getAppPath(), 'build', 'icon.png'),
+    path.join(app.getAppPath(), '..', 'build', 'icon.png')
+  ]
+  for (const candidate of candidates) {
+    try {
+      if (existsSync(candidate)) return candidate
+    } catch {
+      /* keep looking */
+    }
+  }
+  return process.platform === 'win32' ? process.execPath : undefined
 }
 
 function failure(error: unknown, taskId = ''): OperationFailure {
@@ -586,9 +607,9 @@ export function registerEventForwarding(): void {
   downloadQueue.on('progress', (progress) => broadcast('queue:progress', progress))
   downloadQueue.on('item-finished', (item: QueueItem) => {
     broadcast('queue:item-finished', item)
-    if (!settingsStore.getInternal().notifyOnComplete) return
 
-    // Taskbar flash: the native attention cue when the window is in the background.
+    // Taskbar flash is always on - it is the quiet "look here" cue and does not
+    // depend on the notification setting.
     const win = mainWindow()
     if (win && !win.isDestroyed() && !win.isFocused()) {
       try {
@@ -601,12 +622,15 @@ export function registerEventForwarding(): void {
       }
     }
 
+    // The setting only gates the OS toast.
+    if (!settingsStore.getInternal().notifyOnComplete) return
     if (!Notification.isSupported()) return
     try {
       const copy = notificationCopy(item, settingsStore.getInternal().locale || 'en')
       const notification = new Notification({
-        title: copy.title,
-        body: copy.body,
+        title: APP_PRODUCT,
+        body: `${copy.title} · ${copy.body}`,
+        icon: notificationIconPath(),
         silent: item.state === 'done'
       })
       notification.on('click', () => {

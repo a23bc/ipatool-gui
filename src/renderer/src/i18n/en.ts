@@ -241,7 +241,7 @@ export const en = {
   'purchases.title': 'Purchased apps',
   'purchases.subtitle': 'Apps owned by the signed-in Apple ID',
   'purchases.empty.title': 'Nothing to show yet',
-  'purchases.empty.body': 'Sign in, then load the apps owned by your Apple ID.',
+  'purchases.empty.body': 'Loading the apps owned by your Apple ID…',
   'purchases.load': 'Load purchases',
   'purchases.loading': 'Loading purchases…',
   'purchases.page': 'Page {page}',

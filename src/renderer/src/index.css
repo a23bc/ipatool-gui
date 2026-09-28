@@ -440,6 +440,32 @@ body {
   background: var(--row-selected);
 }
 
+/* Menu rows (account switcher, palette): no list rule, tighter than `.row`,
+   and the last item sits flush with the panel edge. */
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-row:hover {
+  background: var(--row-hover);
+}
+.menu-sep {
+  height: 1px;
+  margin: 2px 8px;
+  background: var(--border);
+}
+
 .divider {
   height: 1px;
   background: var(--border);

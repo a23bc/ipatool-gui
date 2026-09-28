@@ -28,7 +28,7 @@ function AccountRow({ view, onPick }: { view: AccountView; onPick: (id: string) 
   return (
     <button
       type="button"
-      className="row w-full gap-2 px-2.5 py-2 text-left"
+      className="menu-row"
       style={view.active ? { background: 'var(--row-selected)' } : undefined}
       onClick={() => onPick(view.id)}
       title={view.email || label}
@@ -139,7 +139,7 @@ export const AccountSwitcher = memo(function AccountSwitcher(): ReactNode {
 
       {open ? (
         <div
-          className="panel fade-in absolute right-0 top-[32px] z-50 w-[300px] overflow-hidden py-1"
+          className="panel fade-in absolute right-0 top-[32px] z-50 w-[300px] overflow-hidden py-0.5"
           style={{ boxShadow: 'var(--shadow)' }}
           role="menu"
         >
@@ -153,19 +153,15 @@ export const AccountSwitcher = memo(function AccountSwitcher(): ReactNode {
             )}
           </div>
 
-          <div className="divider my-1" />
+          <div className="menu-sep" />
 
-          <button
-            type="button"
-            className="row w-full gap-2 px-2.5 py-2 text-left text-[12.5px]"
-            onClick={() => void add()}
-          >
+          <button type="button" className="menu-row" onClick={() => void add()}>
             <Icon name="plus" size={13} />
             {t('accounts.add')}
           </button>
           <button
             type="button"
-            className="row w-full gap-2 px-2.5 py-2 text-left text-[12.5px]"
+            className="menu-row"
             onClick={() => {
               setOpen(false)
               setAccountsOpen(true)

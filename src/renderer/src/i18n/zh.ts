@@ -234,7 +234,7 @@ export const zh: Dict = {
   'purchases.title': '已购项目',
   'purchases.subtitle': '当前登录 Apple ID 名下的应用',
   'purchases.empty.title': '还没有内容',
-  'purchases.empty.body': '登录后即可加载你 Apple ID 名下的应用。',
+  'purchases.empty.body': '正在加载你 Apple ID 名下的应用…',
   'purchases.load': '加载已购项目',
   'purchases.loading': '正在加载已购项目…',
   'purchases.page': '第 {page} 页',
