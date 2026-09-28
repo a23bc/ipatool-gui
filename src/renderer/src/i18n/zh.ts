@@ -483,9 +483,10 @@ export const zh: Dict = {
   'errors.rate-limited': 'Apple 正在对该账户限流',
   'errors.rate-limited.hint': '等几分钟，并调低并行下载数。',
   'errors.network': '网络请求失败',
-  'errors.network.hint': '检查网络、VPN 或代理，确保能访问 Apple 的接口。',
+  'errors.network.hint': '检查网络、VPN 或代理。Apple 购买/下载接口在部分网络下需要代理才能访问。',
   'errors.dns': '无法解析 Apple 服务器',
-  'errors.dns.hint': 'DNS 解析失败——检查网络、VPN 或 hosts 文件。',
+  'errors.dns.hint':
+    '域名解析失败（常见于 p47-buy.itunes.apple.com 等购买接口）。请配置系统代理或 VPN 后重试；也可检查 hosts/DNS。',
   'errors.tls': 'TLS 握手失败',
   'errors.tls.hint': '通常是代理或防火墙在做 TLS 拦截。请信任其证书或关闭拦截。',
   'errors.timeout': '请求超时',

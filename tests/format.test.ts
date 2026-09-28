@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   MovingAverage,
+  RateEstimator,
   clampPercent,
   formatBytes,
   formatDuration,
@@ -120,5 +121,71 @@ describe('MovingAverage', () => {
     ma.push(500)
     ma.reset()
     expect(ma.current).toBe(0)
+  })
+})
+
+describe('RateEstimator', () => {
+  it('computes rate from byte counters over their real sampling window', () => {
+    const rate = new RateEstimator(1)
+    // 500 ms window, +500_000 bytes → 1_000_000 B/s
+    rate.observeBytes(0, 1000)
+    rate.observeBytes(500_000, 1500)
+    expect(rate.speed(1500)).toBeCloseTo(1_000_000, 0)
+  })
+
+  it('does not inflate a 500 ms jump by treating it as a 100 ms sample', () => {
+    const rate = new RateEstimator(1)
+    rate.observeBytes(0, 0)
+    rate.observeBytes(1_000_000, 500) // 2 MB/s over 500 ms
+    // A 100 ms display tick must NOT re-observe the same counter.
+    expect(rate.speed(600)).toBeCloseTo(2_000_000, 0)
+  })
+
+  it('prefers a fresh upstream speed over the self-calculated estimate', () => {
+    const rate = new RateEstimator(1)
+    rate.observeBytes(0, 0)
+    rate.observeBytes(100_000, 500) // self-calc: 200_000 B/s
+    rate.observeUpstreamSpeed(999_000, 500)
+    expect(rate.speed(600)).toBe(999_000)
+  })
+
+  it('falls back to the windowed average once upstream goes stale', () => {
+    const rate = new RateEstimator(1)
+    rate.observeBytes(0, 0)
+    rate.observeBytes(100_000, 500) // 200_000 B/s
+    rate.observeUpstreamSpeed(999_000, 500)
+    expect(rate.speed(600)).toBe(999_000)
+    // Keep sampling bytes so the estimator is not idle; stop feeding upstream.
+    rate.observeBytes(200_000, 1000)
+    rate.observeBytes(300_000, 1500) // still 200_000 B/s over each 500 ms window
+    // t=2501 is past the upstream TTL but only 1 s after the last byte sample.
+    expect(rate.speed(2501)).toBeCloseTo(200_000, 0)
+  })
+
+  it('decays toward zero when the transfer goes idle', () => {
+    const rate = new RateEstimator(0.5)
+    rate.observeBytes(0, 0)
+    rate.observeBytes(1_000_000, 500)
+    expect(rate.speed(500)).toBeGreaterThan(0)
+    // Idle past the threshold: stalled transfer reads 0, not a frozen burst.
+    expect(rate.speed(500 + 2000)).toBe(0)
+  })
+
+  it('ignores regressions and non-finite input', () => {
+    const rate = new RateEstimator(1)
+    rate.observeBytes(1000, 0)
+    rate.observeBytes(500, 500) // regression
+    rate.observeBytes(Number.NaN, 600)
+    rate.observeBytes(-1, 700)
+    expect(rate.speed(800)).toBe(0)
+  })
+
+  it('reset re-bases the counter without carrying the old rate', () => {
+    const rate = new RateEstimator(1)
+    rate.observeBytes(0, 0)
+    rate.observeBytes(1_000_000, 500)
+    rate.observeUpstreamSpeed(500_000, 500)
+    rate.reset(2_000_000)
+    expect(rate.speed(600)).toBe(0)
   })
 })

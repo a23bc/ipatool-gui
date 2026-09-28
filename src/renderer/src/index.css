@@ -255,6 +255,14 @@ body {
   font-size: 12px;
 }
 
+/* Input with a leading icon (absolute-positioned in a relative wrapper).
+ * This file is unlayered, so `.input`'s padding beats call-site `pl-*`
+ * utilities — the reserved gutter has to live here or the icon overlaps
+ * the text. Keep the icon's `left` + width + gap inside this padding. */
+.input-icon {
+  padding-left: 32px;
+}
+
 /* Select (components/Select.tsx)
  *
  * Replaces the native <select>, whose popup is drawn by the OS and cannot be

@@ -136,7 +136,7 @@ export const Header = memo(function Header(): ReactNode {
         </span>
         <input
           ref={inputRef}
-          className="input no-drag h-[28px] pl-8 pr-3"
+          className="input input-icon no-drag"
           type="search"
           value={term}
           placeholder={t('search.placeholder')}

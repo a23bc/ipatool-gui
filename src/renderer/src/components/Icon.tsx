@@ -100,9 +100,12 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   play: <path d="M7.5 4.8v14.4L19.5 12z" />,
+  /* Solid bars: the path must have area, because FILLED icons are drawn with
+     fill=currentColor and stroke=none — a zero-area path renders as nothing. */
   pause: (
     <>
-      <path d="M8.5 5v14M15.5 5v14" />
+      <rect x="7" y="5" width="3.5" height="14" rx="1.2" />
+      <rect x="13.5" y="5" width="3.5" height="14" rx="1.2" />
     </>
   ),
   stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
