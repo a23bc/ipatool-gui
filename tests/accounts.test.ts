@@ -200,6 +200,15 @@ describe('naming', () => {
     expect(sortAccounts([a, b]).map((entry) => entry.id)).toEqual(['a2hijklm', 'a1bcdefg'])
   })
 
+  it('pins the active account first even when another was used more recently', () => {
+    const active = profile({ id: 'a1bcdefg', lastUsedAt: 1 })
+    const other = profile({ id: 'a2hijklm', lastUsedAt: 9 })
+    expect(sortAccounts([other, active], 'a1bcdefg').map((entry) => entry.id)).toEqual([
+      'a1bcdefg',
+      'a2hijklm'
+    ])
+  })
+
   it('keeps the active id only while it names a real account', () => {
     const accounts = [profile({ id: 'a1bcdefg' }), profile({ id: 'a2hijklm' })]
     expect(resolveActiveId(accounts, 'a2hijklm')).toBe('a2hijklm')
