@@ -257,7 +257,9 @@ export function Select<T extends string | number>({
                   onClick={() => commit(option)}
                 >
                   <span className="select-value">{option.label}</span>
-                  {option.value === value ? <Icon name="check" size={13} /> : null}
+                  <span className="select-check" aria-hidden="true">
+                    {option.value === value ? <Icon name="check" size={13} /> : null}
+                  </span>
                 </button>
               ))}
             </div>,

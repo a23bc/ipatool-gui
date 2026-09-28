@@ -203,6 +203,11 @@ export class DownloadQueue extends EventEmitter {
       // tracked. Including the account matters: the same app is a different
       // download for a different Apple ID (different licences, different
       // storefront), so it must not be collapsed into one row.
+      //
+      // `error` is deliberately NOT a match: a failed row must not swallow a
+      // fresh download click - the user is explicitly asking for another try.
+      // `done` / `canceled` are likewise free to be re-queued. `paused` still
+      // collapses, because a second row would race the same output file.
       const existing = this.items.find(
         (item) =>
           item.appId === appId &&
@@ -211,7 +216,8 @@ export class DownloadQueue extends EventEmitter {
           item.platform === platform &&
           item.accountId === accountId &&
           item.state !== 'done' &&
-          item.state !== 'canceled'
+          item.state !== 'canceled' &&
+          item.state !== 'error'
       )
       if (existing) {
         ids.push(existing.id)

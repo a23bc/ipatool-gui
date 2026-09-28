@@ -450,11 +450,16 @@ export const zh: Dict = {
   'toast.settingsReset': '设置已恢复默认',
   'toast.engineInstalled': 'ipatool {version} 安装完成',
   'toast.engineFailed': '无法完成 ipatool 安装',
+  'toast.engineAlready': '本地已是 ipatool {version}，未重新下载',
+  'engine.reinstall.title': 'ipatool 已安装',
+  'engine.reinstall.body': '本地已存在 ipatool {version}，还要重新下载并安装吗？',
+  'engine.reinstall.ok': '重新下载',
   'toast.signedOut': '已退出登录',
   'toast.imported': '已导入 {n} 条',
   'toast.importEmpty': '文件里没有可识别的内容',
   'toast.needSignIn': '请先登录 App Store',
   'toast.needEngine': 'ipatool 还不可用',
+  'toast.fileMissing': '文件不存在，可能已被移动或删除',
 
   /* ---------------- errors ---------------- */
   'error.title': '出错了',

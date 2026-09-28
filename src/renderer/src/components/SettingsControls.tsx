@@ -107,7 +107,7 @@ export function TextInput({
   placeholder,
   type = 'text',
   mono = false,
-  className = 'w-[280px]',
+  className = 'input-w-lg',
   disabled = false
 }: TextInputProps): ReactNode {
   return (
@@ -144,7 +144,7 @@ export function NumberInput({ value, onChange, min, max, step = 1 }: NumberInput
         −
       </button>
       <input
-        className="input input-mono h-[26px] w-[52px] text-center"
+        className="input input-mono input-number"
         type="number"
         value={value}
         min={min}

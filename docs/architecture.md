@@ -1,0 +1,411 @@
+# 架构与实现细节
+
+> 本文是技术长文：多账户模型、暂停续传、进度解析、安全模型、打包发布、代码地图等。
+> 产品介绍与安装请看根目录 [README](../README.md)。
+
+[中文](#简介) · [English](#what-this-is)
+
+一个跨平台桌面应用，为 [majd/ipatool](https://github.com/majd/ipatool) 提供完整的图形界面：
+搜索 App Store、查看版本历史、批量下载 `.ipa` / `.pkg` 安装包、管理下载队列与凭据。
+
+**仓库里不含任何 ipatool 二进制文件。** 首次运行时从官方 GitHub Releases 下载，
+并校验官方发布的 SHA-256；编译与打包全部在 GitHub Actions 中完成。
+
+---
+
+## 简介
+
+`ipatool` 是一个命令行工具。本项目的定位是它的**前端**：不自己实现任何 Apple 私有协议，
+所有与 App Store 的交互都通过调用 `ipatool` 完成。因此：
+
+- 本仓库只有 TypeScript 源码，**不存储、不分发 ipatool 可执行文件**；
+- 应用会自行定位或安装 ipatool（见下文「ipatool 从哪里来」）；
+- ipatool 升级后，GUI 无需改动即可跟随（命令面按 v2.6 实现，向前兼容）。
+
+### 功能清单
+
+| 模块 | 能力 |
+| --- | --- |
+| 引擎 | 自动探测 PATH / Homebrew / scoop / WinGet 等安装位置；缺失时自动下载 + SHA-256 校验 + 解包；可固定版本、可配置 GitHub 镜像、可卸载托管副本 |
+| 登录 | 邮箱 + 密码登录；**两步验证（2FA）在 GUI 内完成第二段输入**；查看账户信息；吊销凭据；记住邮箱 |
+| 账户 | **多账户并存与一键切换**：每个账户拥有独立的 ipatool 会话目录（`XDG_STATE_HOME`）与 HOME 沙箱，各自一份钥匙串口令；登录态互不影响，切换不需要重新登录（macOS 见下文说明）。**切换账户会清空搜索结果与已购项目列表**——它们分别属于某个 Apple ID 的 storefront 与授权，缓存也按账户区分；从未登录过的占位账户不会出现在下拉菜单里，首次「添加账户」会直接复用它而不是新建 `Account 2` |
+| 搜索 | 关键字 / Bundle ID 搜索；平台筛选（iPhone / iPad / Apple TV / visionOS / Mac）；结果数限制；搜索历史；应用图标（主进程代理抓取并缓存） |
+| 版本历史 | `list-versions` 的全部历史版本；按需解析可读版本号与发布日期（并发受限 + 缓存）；下载任意指定版本 |
+| 已购项目 | 分页加载名下应用；客户端二次筛选；多选批量下载；滚动到底自动加载下一页 |
+| 下载队列 | 可调并行数（1–8）；**真·暂停/继续**（基于 ipatool 的 Range 续传，见下文）；取消 / 重试 / 排序 / 移除；速度、剩余时间、百分比；完成后定位文件；失败自动给出可操作建议；队列跨重启持久化；**每个下载绑定加入队列时的账户**，切换账户不会让它在另一个 Apple ID 下完成 |
+| 批量导入 | 导入文本/JSON 列表：支持 Bundle ID、App Store 链接、track ID、`id: …, name: …` 键值行、管道分隔行 |
+| 活动日志 | 每次 ipatool 调用的完整输出；进度行自动折叠；可按关键字过滤；导出为文本；命令中的密钥全部脱敏 |
+| 命令行台 | 直接运行任意 ipatool 子命令（含交互模式开关），用于排障与高级用法 |
+| 设置 | 中英双语（默认跟随系统）、明暗主题、下载目录、钥匙串口令策略、HOME 沙箱开关、日志上限、通知等 |
+| 其他 | 命令面板（⌘/Ctrl+K）、全局快捷键、窗口关闭前确认、检查更新 |
+
+### 截图
+
+应用为原生窗口（macOS 隐藏式标题栏、Windows 标题栏叠加按钮），
+首次启动会出现 ipatool 安装向导。界面为深色优先的现代风格，列表全虚拟化。
+
+---
+
+## 关键设计决策
+
+### 为什么不是「纯网页前端」
+
+浏览器里的 JavaScript **没有任何途径**执行本地命令行——这是沙箱的硬限制。
+「纯前端 + 调用 ipatool」必须依赖一个宿主进程。权衡后选择 Electron：
+
+- 全栈 TypeScript，主进程 / preload / 渲染进程共享类型与纯逻辑层，编译期即可发现 IPC 不一致；
+- 渲染层与其它方案同样是 webview，UI 流畅度没有差别；
+- 打包产物覆盖 Windows（NSIS + 便携版）、macOS（dmg）、Linux（AppImage + deb）。
+
+> 若你更想要 Tauri/Wails 的体积，`src/shared/` 与 `src/main/` 的命令构建、输出解析、
+> 队列与引擎逻辑均为平台无关的纯逻辑，可以较直接地移植到 Rust/Go 壳中。
+
+### 多账户是怎么做到的（以及为什么必须读 ipatool 源码）
+
+ipatool 没有任何「账户/profile」参数，也没有 `--account` 之类的开关。一个「当前账户」完全由两样东西决定，
+两者都在 `majd/ipatool` v2.6 的源码里：
+
+| 东西 | 存在哪 | 上游代码 |
+| --- | --- | --- |
+| HTTP cookie（搜索、购买、下载真正用来认证的会话） | `<stateDir>/cookies` | `cmd/common.go` 的 `newCookieJar()` |
+| 账户记录（邮箱、passwordToken、DirectoryServicesID、storefront、**以及 Apple ID 密码**） | keyring 的一条记录，键名固定为 `account` | `pkg/appstore/appstore_login.go` 写入 `pkg/appstore/account.go` 的整个 `Account` 结构体 |
+
+第一样由 `XDG_STATE_HOME` 决定：
+
+- `cmd/state_directory.go` 里，`XDG_STATE_HOME`（其次 `XDG_DATA_HOME`）**必须是绝对路径**才会被采用，
+  结果是 `<XDG_STATE_HOME>/ipatool`；否则回退到 `$HOME/.ipatool`。
+- 更关键的是它的回退分支：**只要 `$HOME/.ipatool` 存在，ipatool 就优先用它**；而当它存在、
+  XDG 目标也存在时它同样选 legacy，两种情况下多个账户都会悄悄共用一份会话。
+
+所以本程序的每次调用都会同时给出：
+
+1. 绝对路径的 `XDG_STATE_HOME`（每个账户一个目录），以及
+2. 一个**沙箱化的 HOME**（Windows 上是 `HOMEDRIVE`/`HOMEPATH`，其它平台是 `HOME`）——
+   `pkg/util/machine/machine.go` 的 `HomeDirectory()` 是这两个变量的唯一读者，
+   所以沙箱只会影响那条 legacy 回退路径，不会碰到 ipatool 的其它行为。
+   副作用是好的：**用户的真实 `~/.ipatool` 永远不会被移动或删除**，ipatool 根本看不见它。
+
+第二样就没那么友好了。`cmd/common.go` 打开 keyring 时服务名是硬编码的
+`ipatool-auth.service`（`cmd/constants.go`），后端顺序是 `[keychain, secret-service, file]`，
+而 `keyring.Open` **返回第一个打开成功的后端**：
+
+- **macOS**：`keychain` 后端在 release 构建里被编译进去了（workflow 设 `CGO_ENABLED=1`），
+  永远排第一，所以所有 ipatool 进程（GUI、终端 CLI、所有账户）**共用登录钥匙串里的同一条记录**，
+  没有任何 flag / 环境变量 / 配置文件能改变这一点。
+- **Linux**：`secret-service` 后端只要会话总线可达就会被选中。本程序把子进程的
+  `DBUS_SESSION_BUS_ADDRESS` 指向一个不可达地址来让它失败，从而落到 `file` 后端
+  （`keyring.Config.FileDir` 就是我们的账户会话目录）——`file.go` 把整条记录加密写在那个目录里，
+  所以 Linux 上账户之间是真正隔离的。注意**只删除**这个变量是不够的：godbus 会依次回退到
+  `$XDG_RUNTIME_DIR/bus` 和 `/run/user/<uid>/bus`，照样连上真的守护进程。
+- **Windows**：`keychain` 与 `secret-service` 都没有注册，`wincred` 又不在允许列表里，
+  于是必然是 `file` 后端——所以 Windows 上仅靠会话目录就已经完全隔离。
+
+macOS 这一条无法绕过，于是本程序采取的策略是：**替 ipatool 保管并在使用前把正确的记录放进那条共享记录里**。
+
+- 每次登录后探测实际用的后端（看账户自己的会话目录里有没有 `account` 文件，这是 `file` 后端的直接证据）；
+- 只有确实落在共享槽位上时，才用 `/usr/bin/security` 读一份**原样**的记录、用 `safeStorage` 加密后
+  存在该账户目录下（`account.enc`）。密码以 stdin 交给 `security -i`，不出现在命令行里；
+- 切换账户 = 换环境变量 + 把该账户的记录写回槽位。写入前会先读：如果槽位里现在是**另一个本程序管理的账户**，
+  先把它的记录存回它自己名下，再覆盖；如果恰好是终端 CLI 的会话（无法归属给任何账户），由于事后也无从恢复，
+  只能覆盖，这一点在代码注释与 UI 文案里都写明了；
+- 共享槽位同一时刻只能描述一个账户，所以这条路径上的调用会被串行化（每账户会话目录独立的平台不受影响，
+  下载并行度保持不变）。
+
+这套逻辑带来一个可验证的保证：**任何一个 ipatool 调用如果 session 与记录的身份不一致，会被如实报告出来，
+而不是"悄悄用另一个 Apple ID 跑完"**。这一点很重要——`cmd/search.go`、`download.go`、`purchase.go`、
+`purchases.go`、`list_versions.go`、`get_version_metadata.go` 在动手之前都会先调 `AppStore.AccountInfo()`，
+把账户里的 storefront / pod / DirectoryServicesID 塞进请求里，所以槽位放错不只是 UI 显示错，而是会**用错的
+storefront、以错的身份真的买下一份授权**。
+
+> 实测提示：本仓库的自动化测试覆盖了上述判定逻辑（`tests/accounts.test.ts`、`tests/main-accounts.test.ts`），
+> 但 macOS 的 `security` 分支无法在 CI 上跑通真实钥匙串；该平台的行为以"检测 + 明确报错"为准，
+> 未验证时会降级为"切换需要重新登录"，而不是假装成功。
+
+### 暂停 / 继续是怎么做到的
+
+ipatool 没有 `--resume` 参数，但它的 `downloadFile()` 会打开 `<目标>.tmp`、读取已有大小，
+并发送 `Range: bytes=<已有字节>-` 请求头后从文件末尾续写。因此：
+
+- **暂停 = 杀掉子进程**，`.tmp` 保留在磁盘上；
+- **继续 = 用相同参数重跑同一条命令**，ipatool 自动从断点续传。
+
+长时间暂停后 Apple 可能拒绝字节范围（HTTP 416），此时队列会给出
+「丢弃未完成文件」按钮，从 0 字节重新开始。
+
+### 下载进度是怎么解析出来的
+
+`download` 以**交互模式**运行（progressbar 只在交互模式创建，且不要求 TTY 也会输出），
+输出形如：
+
+```
+downloading  21% [======>       ] (12/45 MB, 1.2 MB/s)
+```
+
+注意三个容易踩错的细节，解析器都已处理：单位是 **1000 进制**且带前导空格；
+当前值与总量同单位时会塌缩成 `12/45 MB`；速率与进度在**同一个括号**里，
+朴素的「取前两个尺寸」会把速率当成总量。解析器用多条互不依赖的正则容错匹配，
+并以**轮询 `.tmp` 文件大小**作为兜底数据源（字节数精确，且不依赖 bar 的版式）。
+
+### 性能与流畅性
+
+- **进度不经过 React**：主进程按 10 Hz 节流推送，渲染进程通过 `progressBus` 直接写
+  `transform: scaleX()` 与 `textContent`（合成器路径，不触发布局与重渲染）；
+- **队列快照合并**：主进程 4 Hz 推全量快照，渲染进程按「结构签名」比对，
+  未变化的行**复用原对象引用**，`React.memo` 因此真正生效；
+- **全虚拟化列表**：搜索结果、已购项目、下载队列、日志均为定高虚拟滚动；
+- **IPC 与日志上界**：每任务日志环形缓冲（默认 2000 行）、任务数上限 200、图标 LRU 缓存；
+- 首屏不等网络：窗口 `ready-to-show` 后才做引擎探测与账户刷新。
+
+### 为什么所有下拉框都是自绘的（以及一个 CSS 分层的坑）
+
+原生 `<select>` 的**弹出列表由操作系统绘制**（Windows 的灰色系统菜单、系统字体、系统高亮），
+CSS 管不到它——而本应用其他菜单（账户下拉、命令面板）都是自绘面板，两者并排就显得不是一个程序。
+`components/Select.tsx` 因此替掉了全部 4 处原生 select：触发器沿用 `.input` 的盒子，
+弹出层用 `.panel`，行高亮/选中态与账户菜单一致。
+
+两个实现要点：弹出层**挂到 `<body>` 并用 `position: fixed`**（这些控件位于 `overflow: hidden`
+的卡片与工具栏里，绝对定位会被裁掉），定位与键盘索引逻辑抽到 `lib/select.ts`
+（纯函数，有单测）；焦点始终留在触发器上，活动行通过 `aria-activedescendant` 汇报。
+
+⚠️ 顺带记录一个容易踩的坑：`index.css` 里的自定义类是**未分层（unlayered）**的，而 Tailwind 4
+的工具类在 `@layer utilities` 里——按 CSS 层叠规则，**未分层样式优先于任何 `@layer` 内的样式**，
+与选择器权重无关。所以 `<select class="select h-[26px]">` 这种写法里的 `h-[26px]`
+**从来没有生效过**（`.select{height:30px}` 赢），全应用工具栏的控件实际都是 30px。
+新控件把尺寸写进类本身（`.select-trigger`），调用点只负责宽度约束，不再依赖被静默忽略的工具类。
+
+### 安全模型
+
+- 渲染进程 `sandbox: true` + `contextIsolation: true` + 严格 CSP；生产构建关闭 DevTools；
+  导航仅允许应用自身的 renderer 入口，新窗口一律拒绝；
+- preload 只暴露一个冻结的 `window.api` 对象（显式白名单），事件订阅在 preload 内做运行时通道校验；
+- **IPC 表面最小信任**：`fs:open-path` 仅允许打开下载目录 / userData / 队列输出目录内的
+  目录与 `.ipa/.pkg/.txt/.log` 文件（`shell.openPath` 会直接启动可执行文件，必须白名单）；
+  命令行控制台（`run:raw`）只放行只读子命令（`search` / `list-versions` / `list-purchases` /
+  `get-version-metadata` / `auth info`），登录、吊销、下载、购买必须走各自的专用通道；
+- **密码 / 2FA / 钥匙串口令在落盘、展示、导出前全部脱敏**；Apple ID 密码从不经过本程序持久化——
+  唯一的例外是 macOS 共享钥匙串槽位下的 `account.enc`：那份副本是 ipatool 自己写进钥匙串的**同一条记录**
+  （上游把整个 `Account` 结构体连同密码一起存下来），不保留它就无法在不重新登录的前提下切回某个账户。
+  它以 `safeStorage`（DPAPI / Keychain / libsecret）加密存放、权限 0600、永不出现在 IPC 返回值和日志里，
+  并在 `auth revoke` 时一并删除；
+- **每个账户一份钥匙串口令**（`passphraseMode=auto`）：一把口令泄露只影响一个会话，而不是整台机器上的全部会话；
+  托管口令同样用 `safeStorage` 加密存储，**`safeStorage` 不可用时拒绝落盘**（自动降级为 `passphraseMode=none`
+  并告警），绝不写明文；
+- 账户 id 只用于目录名，来自 IPC 的值会被正则校验后才参与路径拼接，因此不存在把会话目录指到
+  `accounts/` 之外的可能；`remove` 也只删除本程序自己创建的 `<userData>/accounts/<id>` 目录；
+- 引擎下载校验官方 `.sha256sum`，不一致即拒绝安装；**校验文件永远从 github.com 原始地址
+  拉取**——即使配置了镜像，镜像也只代理二进制下载本身，绝不同时代理校验源
+  （否则镜像可以同时伪造产物与校验和，验证形同虚设）；
+- tar 解析器在源头拒绝绝对路径与 `..` 穿越条目（包括 symlink 目标），`packageFileName`
+  对用户输入的 version 做路径分隔符消毒。
+
+---
+
+## 构建与安装
+
+### 方式一：GitHub Releases（推荐）
+
+推送 `v*` 标签后，`.github/workflows/release.yml` 会在 Windows / macOS / Linux
+三个矩阵上构建并上传安装包到 Draft Release。macOS 产物是 **ad-hoc 临时签名的未公证 app**，
+Windows 产物未签名：
+
+- **macOS**：Gatekeeper 对「被浏览器打上 quarantine 标记、又没有 Developer ID 签名」的 app
+  报的是 **「「IPATool GUI」已损坏，无法打开」**——**这不是文件真的坏了**，而是它无法被公证校验。
+  解压后把 app 拖进「应用程序」，执行一次下面这条命令即可正常打开：
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/IPATool GUI.app"
+  ```
+
+  `-r` 不能省：app 包内部还有一批同样带 quarantine 标记的文件。
+  macOS 15+ 的「右键 → 打开」已不能绕过 Gatekeeper（要到 系统设置 → 隐私与安全性 → 「仍要打开」），
+  所以这条命令是最省事的路径，且只需执行一次。
+  另外请**用 Finder 双击解压或在终端 `tar -xzf`**：这两种方式会保留符号链接与可执行位；
+  部分第三方解压工具会丢掉它们，那才会让 app *真的*损坏。
+- **Windows**：接受 SmartScreen 提示即可。
+
+> ⚠️ **未签名意味着分发链路上的任何中间人（镜像站 / CDN）都可以替换安装包而用户无从校验。**
+> 因此本项目**禁止在未启用代码签名前切换到 `electron-updater` 自动更新**：未签名的
+> auto-update 通道是 RCE 向量（攻击者替换 `latest.yml` 即可让所有客户端执行任意代码）。
+> 当前的更新检查只做「提示 + 跳转 Release 页」，由用户手动下载。
+>
+> 持有证书的 fork 无需修改仓库即可签名：导出 `CSC_LINK`（证书 base64）与
+> `CSC_KEY_PASSWORD` 环境变量，electron-builder 会自动拾取；macOS 上再追加
+> `-c.mac.hardenedRuntime=true -c.mac.notarize.teamId=<TEAM_ID>` 完成加固与公证。
+
+> **触发模型（默认不发布任何东西）：**
+>
+> | 动作 | 结果 |
+> | --- | --- |
+> | 推送分支 | 仅 `ci.yml` 验证，无产物 |
+> | 推送 `v*` 标签 | 5 个矩阵（win-x64 / mac-x64 / mac-arm64 / linux-x64 / linux-arm64）各自构建，**每个平台+架构一个独立 artifact**；不创建 Release |
+> | Actions → Release → Run workflow | 同上；勾选 `publish` 才会额外创建 **Draft** Release |
+>
+> artifact 按「平台+架构」拆分上传：只想要 Linux x64 时不必把 arm64 或别的平台一起下载。
+>
+> ⚠️ **Linux 的架构只能由 `--x64` / `--arm64` 决定，不能写在 target 名里。**
+> 两个坑都踩过了，记在这里以免再犯：
+> 1. `--linux AppImage:x64 deb:x64` 会被 CLI 当成**未知参数**（`Unknown arguments: …`）报错退出。
+>    `--linux` 是数组型选项，它在遇到下一个 `--flag` 时就结束取值，于是这两个 token 落成了
+>    位置参数。target 名里的 `:arch` 后缀本身是被支持的，但**必须紧跟平台标志**：
+>    `--linux AppImage:x64 deb:x64 --x64`。
+> 2. 更隐蔽的是：**只要 `electron-builder.yml` 的 `linux.target` 里写了 `arch: [x64, arm64]`，
+>    `--x64` 就会被静默忽略**。`computeArchToTargetNamesMap()` 只在「target 名要由它自己发明」
+>    时才读 CLI 的架构标志，否则就展开配置里的架构列表 —— 于是每个 job 都构建两个架构，
+>    x64 artifact 里混进了 arm64 包。
+>
+> 所以现在 `electron-builder.yml` 的 `linux.target` **不写 arch**，架构统一由 CLI 决定：
+> `--linux --x64` → 只有 x64，`--linux --arm64` → 只有 arm64，
+> 本机要一次出两个架构就 `npm run dist:linux`（脚本里显式传了 `--x64 --arm64`）。
+> 注意：**GitHub 的 artifact 下载永远是 zip 容器**（平台行为，无法更改）。要拿原始文件
+> （安装包/运行包本身），请用同一次运行自动创建的 **Draft Release** 的资产区——Draft 不公开，
+> 只有仓库协作者可见，手动点 Publish 才会对外。
+> macOS 在 CI 上产 **`.app.tar.gz` 运行包**（GitHub 的 macOS runner 无法运行 dmg 所需的
+> `hdiutil attach`，会报 `Device not configured`，故用 `dir` target + tar）；
+> 在真实 Mac 上 `npm run dist:mac` 仍会产 dmg 安装包。
+> 各平台产物：Windows = NSIS 安装包 + portable 运行包（x64）；Linux = deb 安装包 + AppImage 运行包（x64 与 arm64 分开打包）。
+>
+> Draft 不是公开状态，仍需到 Releases 页手动点 Publish 才对外可见。
+> 地下开发阶段只要不勾 `publish`，仓库对外不会留下任何 Release 痕迹。
+>
+> 另外注意：`git push origin main` **不会推送标签**；需要标签时必须
+> `git push origin v1.3.2-alpha.1`（或 `--tags`）。
+> 预发布版本直接用带后缀的标签即可（如 `v1.3.2-alpha.1`）：它同样命中 `v*`，
+> 产物一样按平台+架构拆分上传，只是电子包名里会带上 `-alpha.1`。
+> 不想留下任何 tag 时，用 Actions → Release → Run workflow 手动跑一次即可。
+
+### 方式二：本地开发
+
+```bash
+npm install          # 需要 Node 20.19+ / 22+
+npm run dev          # esbuild 监听主进程 + Vite HMR + 自动拉起 Electron
+```
+
+> 仅做验证而无需启动 GUI 时：
+> `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install`，然后 `npm run typecheck && npm test && npm run build`。
+
+### 方式三：本地打包
+
+```bash
+npm run dist         # 当前平台
+npm run dist:win     # Windows NSIS + portable
+npm run dist:mac     # macOS dmg/zip（未签名）
+npm run dist:linux   # AppImage + deb（本机同时产 x64 与 arm64；CI 按架构拆成两个 job）
+```
+
+产物在 `release/`。Linux 打包需要 `fakeroot`、`dpkg`、`rpm`、`libarchive-tools`
+（CI 已安装）。
+
+### 测试
+
+```bash
+npm test             # vitest（含覆盖率门槛）：shared 纯逻辑 + main 进程防御代码
+npm run test:watch   # 监听模式（关闭覆盖率，跑得更快）
+npm run typecheck    # 主进程/preload 与 渲染进程 两个 tsconfig 全量检查（noUncheckedIndexedAccess 已开启）
+npm run lint         # ESLint（typescript-eslint + react/react-hooks）
+npm run format       # Prettier
+```
+
+覆盖率门槛在 `vitest.config.ts`：`src/shared/**` 按高水位设卡（纯函数层），
+全局地板随 main 进程测试的补齐逐步上调。CI 对以上四项全量执行。
+
+---
+
+## ipatool 从哪里来
+
+按以下顺序解析，命中即止：
+
+1. 设置里手动指定的路径（或 `IPATOOL_PATH` 环境变量）；
+2. 应用托管目录 `<userData>/bin/ipatool`；
+3. `PATH`；
+4. 常见安装目录（`/opt/homebrew/bin`、`scoop`、`WinGet`、`~/.local/bin` …）。
+
+全都找不到且开启了自动安装时，从 `majd/ipatool` Releases 下载匹配当前
+`os/arch` 的 `ipatool-<v>-<os>-<arch>.tar.gz`，校验 `.sha256sum` 后解包安装。
+可在设置中固定版本或配置镜像前缀（例如 `https://gh-proxy.com`）。
+注意：**镜像只加速二进制下载，`.sha256sum` 校验文件始终从 github.com 原始地址获取**，
+不受镜像配置影响——这是供应链校验有效性的前提。
+
+---
+
+## 目录结构
+
+```
+src/
+  shared/            平台无关纯逻辑（有单测）
+    ipatool/args.ts      ipatool v2 命令面（参数构建）
+    ipatool/parse.ts     zerolog JSON + progressbar 输出解析
+    ipatool/errors.ts    失败 → 稳定错误码（供 i18n）
+    accounts.ts          多账户纯逻辑：身份比对、槽位归属、security/secret-tool 参数与输出解析
+    import.ts            批量导入列表解析
+    semver.ts tar.ts redact.ts format.ts
+  main/              Electron 主进程
+    runner.ts            子进程流式执行（\r 分段 / 脱敏 / 可杀 / Linux 上关掉 D-Bus 以强制 file keyring）
+    api.ts               高层操作（登录 2FA、搜索、下载…），每次调用按账户注入环境与口令
+    accounts.ts          账户注册表：会话目录、HOME 沙箱、每账户口令、凭据存储探测、记录快照、legacy 目录治理
+    keyringSlot.ts       macOS `security` / Linux `secret-tool` 读写共享凭据槽位
+    session.ts           身份校验、切换编排、登录后收尾
+    queue.ts             下载队列（续传 / 并发 / 持久化 / 节流 / 按账户绑定）
+    engine.ts            引擎定位 / 下载 / 校验 / 安装
+    artwork.ts http.ts settings.ts tasks.ts ipc.ts window.ts index.ts
+  preload/           唯一 IPC 出口（冻结的 window.api）
+  renderer/          React 19 + Vite + Tailwind 4
+    src/store/           zustand 状态（快照合并、进度旁路）
+    src/lib/progressBus  进度直写 DOM 的总线
+    src/lib/select.ts    自绘下拉框的定位/键盘纯逻辑（有单测）
+    src/components|pages i18n(zh-CN/en-US)、账户切换器与账户管理面板、自绘 Select
+.github/workflows/   ci.yml（验证）+ release.yml（三平台打包发布）
+tests/               vitest 单测 + 真实 tar 固件
+```
+
+---
+
+## 安全披露
+
+本项目处理 Apple ID 凭据、密码与钥匙串口令，属于高敏感软件。如果你发现了安全漏洞：
+
+- **请勿提交公开 issue**；
+- 优先使用 GitHub 的 **Private vulnerability reporting**（仓库 → Security →
+  Report a vulnerability）；若未开启，请通过维护者私下渠道联系；
+- 请附带最小复现步骤与影响面说明；我们会在修复发布后再公开细节。
+
+依赖链安全由 Dependabot（`.github/dependabot.yml`）每周跟踪。
+
+## 错误处理约定
+
+代码库遵循统一的错误处理决策树（新增代码请照此归类）：
+
+| 层 | 约定 |
+| --- | --- |
+| shared 纯逻辑 | 直接 `throw`（调用方决定语义） |
+| main 进程状态机（engine） | 不 throw；`set(status('error', ...))` 通过事件面呈现 |
+| main 进程账户注册表 | throw `AccountError`（带可翻译 code）；IPC `wrap()` 转成结构化 `OperationFailure` |
+| main 进程 IPC handler | 用 `wrap()` 把 throw 转成结构化 `OperationFailure`（带可翻译 code） |
+| main 进程队列 | catch 后 `fail(item, message)`，错误进入 item.error |
+| renderer store action | 每个 `await window.api.*` 都必须 try/catch：catch 中回滚 loading/禁用态并 toast |
+| 凭据写入 | safeStorage 不可用时 throw（绝不静默降级为明文/丢弃）；共享槽位读取到的记录解析失败一律当作"不可用"而非猜测 |
+
+## 许可与声明
+
+MIT。ipatool 为 majd 的独立 MIT 项目，本项目不重新分发它。
+
+请只下载你有权获取的应用。自动化访问 App Store 可能触发 Apple 的限流或账户标记。
+
+---
+
+## What this is
+
+A desktop GUI for [ipatool](https://github.com/majd/ipatool): search the App Store,
+browse version history, and download `.ipa`/`.pkg` packages with a resumable,
+parallel download queue. The repository ships **no** ipatool binary — it is resolved
+at runtime or fetched from official releases with SHA-256 verification. Builds run in
+GitHub Actions for Windows, macOS and Linux.
+
+Key points: 2FA handled inside the GUI, **several App Store accounts side by side with one-click
+switching** (each account owns an isolated ipatool session directory *and* a sandboxed home
+directory, so `~/.ipatool` can never be shared between them), real pause/resume (via ipatool's
+ranged downloads), virtualised lists, progress painted outside React, secrets redacted
+everywhere, zh-CN/en-US UI. The multi-account design is derived from ipatool's own source:
+`cmd/state_directory.go` for the session directory, `cmd/common.go` + `cmd/constants.go` for the
+keyring backend order, and `pkg/appstore/appstore_login.go` for what the credential record
+contains. See the Chinese section above for the full write-up, including the one platform where
+upstream only offers a single shared credential slot (macOS Keychain) and how the app handles it.

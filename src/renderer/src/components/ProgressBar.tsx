@@ -86,7 +86,11 @@ export const ProgressBar = memo(function ProgressBar({
         <div ref={fillRef} className="progress-fill" />
       </div>
       {showText ? (
-        <span ref={textRef} className="mono shrink-0 tabular-nums faint" style={{ minWidth: 132 }}>
+        <span
+          ref={textRef}
+          className="mono shrink-0 truncate tabular-nums faint"
+          style={{ width: 210, textAlign: 'right' }}
+        >
           {formatBytes(0)}
         </span>
       ) : null}

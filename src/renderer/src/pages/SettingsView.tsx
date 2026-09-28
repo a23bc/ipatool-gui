@@ -439,7 +439,7 @@ export function SettingsView(): ReactNode {
                 value={settings.artworkCountry}
                 onChange={(value) => void update({ artworkCountry: value.slice(0, 2).toLowerCase() })}
                 mono
-                className="w-[70px] text-center uppercase"
+                className="input-w-xs text-center uppercase"
               />
               <button type="button" className="btn btn-ghost h-[28px]" onClick={() => void clearArtwork()}>
                 <Icon name="trash" size={13} />

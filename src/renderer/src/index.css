@@ -263,6 +263,27 @@ body {
   padding-left: 32px;
 }
 
+/* Widths/sizes that call-site Tailwind utilities cannot set: this file is
+ * unlayered, so `.input { width: 100%; height: 30px }` beats every `w-*` /
+ * `h-*`. Keep concrete box sizes here. */
+.input-number {
+  width: 52px;
+  height: 26px;
+  text-align: center;
+}
+.input-w-xs {
+  width: 70px;
+}
+.input-w-sm {
+  width: 120px;
+}
+.input-w-md {
+  width: 180px;
+}
+.input-w-lg {
+  width: 280px;
+}
+
 /* Select (components/Select.tsx)
  *
  * Replaces the native <select>, whose popup is drawn by the OS and cannot be
@@ -355,6 +376,16 @@ body {
 }
 .select-option svg {
   flex: 0 0 auto;
+}
+/* Always reserve the check's slot so selecting an option cannot steal
+   width from the label and push its tail under the tick. */
+.select-check {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .badge {

@@ -171,6 +171,24 @@ describe('DownloadQueue.load / hydrate', () => {
     expect(queue.snapshot().items).toHaveLength(1)
   })
 
+  it('enqueue adds a new row when the only match is a failed download', async () => {
+    await loadFixture([
+      {
+        id: 'failed',
+        accountId: 'a1bcdefg',
+        appId: 42,
+        bundleID: 'com.example.app',
+        platform: 'iphone',
+        state: 'error'
+      }
+    ])
+    const ids = queue.enqueue([
+      { accountId: 'a1bcdefg', appId: 42, bundleID: 'com.example.app', platform: 'iphone' }
+    ])
+    expect(ids).not.toEqual(['failed'])
+    expect(queue.snapshot().items).toHaveLength(2)
+  })
+
   it('keeps the same app as separate rows for different accounts', async () => {
     // The same bundle id is a different download under a different Apple ID:
     // another licence, possibly another storefront. Collapsing them would make
