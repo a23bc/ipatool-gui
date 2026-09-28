@@ -202,9 +202,22 @@ CSS 管不到它——而本应用其他菜单（账户下拉、命令面板）�
 ### 方式一：GitHub Releases（推荐）
 
 推送 `v*` 标签后，`.github/workflows/release.yml` 会在 Windows / macOS / Linux
-三个矩阵上构建并上传安装包到 Draft Release。未做代码签名：
+三个矩阵上构建并上传安装包到 Draft Release。macOS 产物是 **ad-hoc 临时签名的未公证 app**，
+Windows 产物未签名：
 
-- **macOS**：首次打开请右键 → 打开（或 `xattr -d com.apple.quarantine`）；
+- **macOS**：Gatekeeper 对「被浏览器打上 quarantine 标记、又没有 Developer ID 签名」的 app
+  报的是 **「「IPATool GUI」已损坏，无法打开」**——**这不是文件真的坏了**，而是它无法被公证校验。
+  解压后把 app 拖进「应用程序」，执行一次下面这条命令即可正常打开：
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/IPATool GUI.app"
+  ```
+
+  `-r` 不能省：app 包内部还有一批同样带 quarantine 标记的文件。
+  macOS 15+ 的「右键 → 打开」已不能绕过 Gatekeeper（要到 系统设置 → 隐私与安全性 → 「仍要打开」），
+  所以这条命令是最省事的路径，且只需执行一次。
+  另外请**用 Finder 双击解压或在终端 `tar -xzf`**：这两种方式会保留符号链接与可执行位；
+  部分第三方解压工具会丢掉它们，那才会让 app *真的*损坏。
 - **Windows**：接受 SmartScreen 提示即可。
 
 > ⚠️ **未签名意味着分发链路上的任何中间人（镜像站 / CDN）都可以替换安装包而用户无从校验。**

@@ -154,6 +154,37 @@ jobs:
           tar -czf "$OUT" -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"
           echo "packaged $OUT from $APP_DIR"
 
+      # The only look anyone gets at the macOS bundle: nobody on this project
+      # owns a Mac, so this records what codesign and Gatekeeper make of the
+      # artifact that actually ships (a downloaded ad-hoc signed app is reported
+      # by macOS as "damaged" - see the README; this proves the bundle itself is
+      # intact and correctly signed).
+      #
+      # Deliberately WARN-only: `--strict` against an ad-hoc signed Electron
+      # bundle could not be tested on a real Mac from here, and a red release job
+      # would be worse than a loud warning. Promote to a hard gate once a run
+      # shows it green. The symlink count matters because an archive that lost
+      # its symlinks produces a genuinely broken .app.
+      - name: Verify the macOS bundle (ad-hoc signature, archive integrity)
+        if: matrix.platform == 'mac'
+        run: |
+          APP_DIR="$(find release -maxdepth 2 -name '*.app' -type d -print -quit)"
+          echo "--- signature ---"
+          codesign -dv --verbose=2 "$APP_DIR" 2>&1 | head -15 || true
+          echo "--- codesign --verify --deep --strict ---"
+          if codesign --verify --deep --strict --verbose=2 "$APP_DIR" 2>&1; then
+            echo "signature verify: OK"
+          else
+            echo "::warning::codesign --verify failed - the app may not launch on macOS"
+          fi
+          echo "--- what Gatekeeper will say (rejection is expected: not notarized) ---"
+          spctl -a -t exec -vv "$APP_DIR" 2>&1 || true
+          echo "--- symlinks preserved in the archive (expect the framework set) ---"
+          for archive in release/*.app.tar.gz; do
+            count="$(tar -tzvf "$archive" | grep -c '^l' || true)"
+            echo "$archive: $count symlink entries"
+          done
+
       - name: List artifacts
         run: ls -lh release/
 
@@ -223,7 +254,13 @@ jobs:
             --draft \
             --notes "Windows: NSIS installer + portable exe (x64). Linux: deb + AppImage, built separately for x64 and arm64. macOS: runnable .app.tar.gz for x64 and arm64 (build the dmg installer locally with npm run dist:mac).
 
-          Builds are **unsigned**: on macOS right-click → Open the first time; on Windows accept the SmartScreen prompt.
+          macOS builds are ad-hoc code signed but **not notarized**, so Gatekeeper may report the
+          app as "damaged" - that is the download quarantine flag, not a broken bundle. Move it to
+          /Applications and run:
+            xattr -dr com.apple.quarantine "/Applications/IPATool GUI.app"
+          then open it normally (once is enough). Extract with Finder or `tar -xzf`, never with a
+          tool that drops symlinks or the executable bit.
+          On Windows accept the SmartScreen prompt.
 
           The app itself downloads and verifies [ipatool](https://github.com/majd/ipatool) on first launch - it is not bundled.
 
