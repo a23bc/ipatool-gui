@@ -189,7 +189,8 @@ export function ActivityView(): ReactNode {
                       <Icon name="filter" size={11} />
                     </span>
                     <input
-                      className="input h-[24px] w-[160px] pl-6 text-[11.5px]"
+                      className="input input-icon w-[160px]"
+                      style={{ fontSize: 11.5 }}
                       value={filter}
                       placeholder={t('activity.filter')}
                       onChange={(event) => setFilter(event.target.value)}

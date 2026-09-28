@@ -61,6 +61,8 @@ export const IPATOOL_ERROR_CODES: readonly IpatoolErrorCode[] = [
   'disk',
   'engine-missing',
   'session-mismatch',
+  'profile-required',
+  'profile-not-found',
   'canceled',
   'unknown'
 ]

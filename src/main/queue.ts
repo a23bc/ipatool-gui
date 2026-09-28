@@ -24,7 +24,7 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
 import type { DownloadRequest, Platform, ProgressEvent, QueueItem, QueueSnapshot, QueueState } from '../shared/types'
-import { MovingAverage } from '../shared/format'
+import { RateEstimator } from '../shared/format'
 import { mergeProgress, type ProgressSample } from '../shared/ipatool/parse'
 import { classifyError, shorten } from '../shared/ipatool/errors'
 import { ApiError, ipatoolApi } from './api'
@@ -405,10 +405,8 @@ export class DownloadQueue extends EventEmitter {
       return
     }
 
-    const average = new MovingAverage(0.25)
+    const rate = new RateEstimator(0.25)
     let sample: ProgressSample | null = null
-    let lastReceived = item.progress.received
-    let lastSampleAt = Date.now()
 
     const handle: RunningDownload = {
       cancel: () => {},
@@ -443,7 +441,7 @@ export class DownloadQueue extends EventEmitter {
       item.progress.total = total
       item.progress.percent =
         total && total > 0 ? Math.min(100, (received / total) * 100) : (sample?.percent ?? item.progress.percent)
-      const speed = average.current
+      const speed = rate.speed()
       item.progress.speed = speed
       item.progress.etaSec = total && speed > 1024 ? Math.max(0, (total - received) / speed) : null
       this.emitProgress(item)
@@ -454,25 +452,29 @@ export class DownloadQueue extends EventEmitter {
       if (sample?.received != null && sample.received >= item.progress.received) {
         item.progress.received = sample.received
       }
+      // Trust progressbar's own rate when it prints one — that is what the CLI
+      // shows, over a window progressbar chose. Do NOT derive a rate here from
+      // `received`: those updates share the disk poll's counter but not its
+      // cadence, and mixing the two inflates speed (see RateEstimator).
+      if (next.speed != null) rate.observeUpstreamSpeed(next.speed)
     }
 
     item.state = 'running'
     this.emitSnapshot()
 
+    // Display tick only publishes; rate is sampled by the disk poll below.
     handle.timer = setInterval(() => {
-      const now = Date.now()
-      const elapsed = Math.max(0.05, (now - lastSampleAt) / 1000)
-      const delta = item.progress.received - lastReceived
-      if (delta > 0) average.push(delta / elapsed)
-      lastReceived = item.progress.received
-      lastSampleAt = now
       publish()
     }, PROGRESS_INTERVAL_MS)
     handle.timer.unref?.()
 
     handle.pollTimer = setInterval(() => {
       void this.readPartialSize(item).then((size) => {
-        if (size !== null && size > item.progress.received) item.progress.received = size
+        if (size === null) return
+        if (size > item.progress.received) item.progress.received = size
+        // One sample per poll, over the poll's real interval — never the
+        // 100 ms display tick.
+        rate.observeBytes(size)
       })
     }, POLL_INTERVAL_MS)
     handle.pollTimer.unref?.()
@@ -482,7 +484,7 @@ export class DownloadQueue extends EventEmitter {
     const seeded = await this.readPartialSize(item)
     if (seeded !== null) {
       item.progress.received = Math.max(item.progress.received, seeded)
-      lastReceived = item.progress.received
+      rate.reset(item.progress.received)
     }
 
     let outcomePath = ''
@@ -515,8 +517,11 @@ export class DownloadQueue extends EventEmitter {
         return
       }
 
-      const message = error instanceof ApiError ? error.message : ((error as Error)?.message ?? 'Download failed')
-      this.fail(item, message)
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : ((error as Error)?.message ?? 'Download failed')
+      this.fail(item, message, error instanceof ApiError ? error.code : undefined)
       return
     }
 

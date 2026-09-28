@@ -117,7 +117,7 @@ export function PurchasesView(): ReactNode {
               <Icon name="filter" size={12} />
             </span>
             <input
-              className="input h-[26px] w-[180px] pl-7"
+              className="input input-icon w-[180px]"
               value={filter}
               placeholder={t('purchases.filter')}
               onChange={(event) => setFilter(event.target.value)}

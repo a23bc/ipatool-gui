@@ -498,9 +498,11 @@ export const en = {
   'errors.rate-limited': 'Apple is rate limiting this account',
   'errors.rate-limited.hint': 'Wait a few minutes and lower the number of parallel downloads.',
   'errors.network': 'Network request failed',
-  'errors.network.hint': 'Check your connection, VPN or proxy. Apple endpoints must be reachable.',
+  'errors.network.hint':
+    'Check your connection, VPN or proxy. Apple purchase/download endpoints often need a proxy on restricted networks.',
   'errors.dns': 'Could not resolve Apple’s servers',
-  'errors.dns.hint': 'DNS is failing - check your network, VPN or /etc/hosts.',
+  'errors.dns.hint':
+    'DNS lookup failed (often p47-buy.itunes.apple.com or similar purchase hosts). Configure a system proxy or VPN and retry; also check hosts/DNS.',
   'errors.tls': 'TLS handshake failed',
   'errors.tls.hint':
     'Usually a proxy or firewall intercepting TLS. Trust its certificate or disable interception.',
