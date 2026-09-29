@@ -9,6 +9,23 @@
   "author": "ipatool-gui contributors",
   "license": "MIT",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/a23bc/ipatool-gui.git"
+  },
+  "homepage": "https://github.com/a23bc/ipatool-gui",
+  "keywords": [
+    "ipatool",
+    "app-store",
+    "ipa",
+    "electron",
+    "desktop",
+    "download",
+    "apple",
+    "macos",
+    "windows",
+    "linux"
+  ],
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
