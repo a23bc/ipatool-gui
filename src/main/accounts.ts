@@ -606,7 +606,7 @@ export class AccountRegistry extends EventEmitter {
    * `secret-tool store` overwrites, so a crash mid-switch cannot leave the user
    * with no record at all.
    */
-  private async ensureSlot(profile: AccountProfile): Promise<void> {
+  private async ensureSlot(profile: AccountProfile, options?: { forLogin?: boolean }): Promise<void> {
     const bridge = await slotBridge()
     if (!bridge.available) {
       throw new AccountError(
@@ -626,6 +626,10 @@ export class AccountRegistry extends EventEmitter {
 
     const saved = await this.readSnapshot(profile)
     if (!saved) {
+      // First sign-in: there is nothing to restore *yet*. `auth login` will
+      // write the slot, and afterLogin() then captures a snapshot for later
+      // switches. Refusing here made the very first macOS login impossible.
+      if (options?.forLogin) return
       throw new AccountError(
         `"${accountDisplayName(profile)}" has no restorable session. Sign in to it once to enable switching.`,
         'session-mismatch'
@@ -647,7 +651,7 @@ export class AccountRegistry extends EventEmitter {
    * are per-directory (Windows, Linux) there is no lock and the download pool
    * keeps its full parallelism.
    */
-  async acquire(id?: string, options?: { touch?: boolean }): Promise<AccountLease> {
+  async acquire(id?: string, options?: { touch?: boolean; forLogin?: boolean }): Promise<AccountLease> {
     const profile = id ? this.get(id) : this.active()
     if (!profile) {
       throw new AccountError('No account is selected', 'profile-required')
@@ -671,7 +675,7 @@ export class AccountRegistry extends EventEmitter {
 
     const release = await this.lockSlot()
     try {
-      await this.ensureSlot(profile)
+      await this.ensureSlot(profile, { forLogin: options?.forLogin === true })
     } catch (error) {
       release()
       throw error

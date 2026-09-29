@@ -244,7 +244,9 @@ export function AuthModal(): ReactNode {
                 <span className="text-[11.5px] font-medium dim">{t('auth.email')}</span>
                 <input
                   className="input"
-                  type="email"
+                  // Apple IDs are often phone numbers (e.g. +86…). `type="email"`
+                  // makes the browser reject those before ipatool ever sees them.
+                  type="text"
                   value={email}
                   autoComplete="username"
                   placeholder={t('auth.emailPlaceholder')}

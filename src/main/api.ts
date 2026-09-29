@@ -102,6 +102,11 @@ interface ExecuteOptions {
    * Session probes pass false so "re-check" never looks like a switch.
    */
   touchAccount?: boolean
+  /**
+   * Login writes the shared slot itself - there is no snapshot to restore on a
+   * first sign-in. Skips the "no restorable session" guard in acquire().
+   */
+  forLogin?: boolean
   cwd?: string
   timeoutMs?: number
   /** Raw stream chunks, used by `download` for progress parsing. */
@@ -194,7 +199,8 @@ export class IpatoolApi {
     // and - on a shared-slot platform - makes sure the slot describes this
     // account before the process starts, holding it until we release.
     const lease = await accounts.acquire(options.accountId, {
-      touch: options.touchAccount !== false
+      touch: options.touchAccount !== false,
+      forLogin: options.forLogin === true
     })
     try {
       const args = withGlobals(options.args, {
@@ -331,6 +337,7 @@ export class IpatoolApi {
         args,
         accountId,
         secrets: [password, authCode ?? ''],
+        forLogin: true,
         timeoutMs: 180_000
       })
     } catch (error) {

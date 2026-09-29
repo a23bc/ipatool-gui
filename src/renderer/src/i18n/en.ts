@@ -112,9 +112,9 @@ export const en = {
     'Credentials go straight to ipatool, which stores them in your OS keyring. This app never saves your password.',
   'auth.subtitleNew':
     'Signing in to "{name}". Each account keeps its own session, so switching later does not sign the other one out.',
-  'auth.email': 'Apple ID e-mail',
+  'auth.email': 'Apple ID (e-mail or phone)',
   'auth.password': 'Password',
-  'auth.emailPlaceholder': 'you@example.com',
+  'auth.emailPlaceholder': 'you@example.com or +86 138…',
   'auth.passwordPlaceholder': 'Your Apple ID password',
   'auth.submit': 'Sign in',
   'auth.signingIn': 'Signing in…',
