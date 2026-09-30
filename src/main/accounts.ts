@@ -195,7 +195,8 @@ export class AccountRegistry extends EventEmitter {
 
   async snapshot(): Promise<AccountsSnapshot> {
     const bridge = await slotBridge()
-    const profiles = sortAccounts(this.list())
+    const activeId = this.activeId
+    const profiles = sortAccounts(this.list(), activeId)
     const shared = profiles.some((profile) => this.effectiveStore(profile) === 'os')
     return {
       // Unused slots are not listed: the switcher must not offer a nameless
@@ -203,7 +204,7 @@ export class AccountRegistry extends EventEmitter {
       // at one, which is exactly why the UI treats "active but not listed" as
       // "not signed in".
       accounts: profiles.filter((profile) => !this.isUnused(profile)).map((profile) => this.view(profile)),
-      activeId: this.activeId,
+      activeId,
       credentialSlot: shared ? 'os' : 'file',
       slotBridge: shared ? (bridge.available ? 'available' : 'unavailable') : 'not-needed',
       slotDetail: bridge.detail,
@@ -605,7 +606,7 @@ export class AccountRegistry extends EventEmitter {
    * `secret-tool store` overwrites, so a crash mid-switch cannot leave the user
    * with no record at all.
    */
-  private async ensureSlot(profile: AccountProfile): Promise<void> {
+  private async ensureSlot(profile: AccountProfile, options?: { forLogin?: boolean }): Promise<void> {
     const bridge = await slotBridge()
     if (!bridge.available) {
       throw new AccountError(
@@ -625,6 +626,10 @@ export class AccountRegistry extends EventEmitter {
 
     const saved = await this.readSnapshot(profile)
     if (!saved) {
+      // First sign-in: there is nothing to restore *yet*. `auth login` will
+      // write the slot, and afterLogin() then captures a snapshot for later
+      // switches. Refusing here made the very first macOS login impossible.
+      if (options?.forLogin) return
       throw new AccountError(
         `"${accountDisplayName(profile)}" has no restorable session. Sign in to it once to enable switching.`,
         'session-mismatch'
@@ -646,7 +651,7 @@ export class AccountRegistry extends EventEmitter {
    * are per-directory (Windows, Linux) there is no lock and the download pool
    * keeps its full parallelism.
    */
-  async acquire(id?: string): Promise<AccountLease> {
+  async acquire(id?: string, options?: { touch?: boolean; forLogin?: boolean }): Promise<AccountLease> {
     const profile = id ? this.get(id) : this.active()
     if (!profile) {
       throw new AccountError('No account is selected', 'profile-required')
@@ -659,20 +664,23 @@ export class AccountRegistry extends EventEmitter {
     const store = await this.resolveCredentialStore(profile)
     const passphrase = await this.passphraseFor(profile)
     const env = this.envFor(profile)
+    // `touch` bumps lastUsedAt (and thus list order). Session checks must not
+    // do that - re-checking a lower row would otherwise look like a switch.
+    const shouldTouch = options?.touch !== false
 
     if (store !== 'os') {
-      this.touch(profile.id)
+      if (shouldTouch) this.touch(profile.id)
       return { account: profile, env, passphrase, release: () => {} }
     }
 
     const release = await this.lockSlot()
     try {
-      await this.ensureSlot(profile)
+      await this.ensureSlot(profile, { forLogin: options?.forLogin === true })
     } catch (error) {
       release()
       throw error
     }
-    this.touch(profile.id)
+    if (shouldTouch) this.touch(profile.id)
     return { account: profile, env, passphrase, release }
   }
 

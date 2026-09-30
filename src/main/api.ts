@@ -97,6 +97,16 @@ interface ExecuteOptions {
   secrets?: string[]
   /** Keep ipatool interactive so it renders its progress bar. */
   interactive?: boolean
+  /**
+   * Whether this call should bump `lastUsedAt` (and thus account list order).
+   * Session probes pass false so "re-check" never looks like a switch.
+   */
+  touchAccount?: boolean
+  /**
+   * Login writes the shared slot itself - there is no snapshot to restore on a
+   * first sign-in. Skips the "no restorable session" guard in acquire().
+   */
+  forLogin?: boolean
   cwd?: string
   timeoutMs?: number
   /** Raw stream chunks, used by `download` for progress parsing. */
@@ -188,7 +198,10 @@ export class IpatoolApi {
     // environment (state directory + sandboxed home), the keychain passphrase,
     // and - on a shared-slot platform - makes sure the slot describes this
     // account before the process starts, holding it until we release.
-    const lease = await accounts.acquire(options.accountId)
+    const lease = await accounts.acquire(options.accountId, {
+      touch: options.touchAccount !== false,
+      forLogin: options.forLogin === true
+    })
     try {
       const args = withGlobals(options.args, {
         format: 'json',
@@ -324,6 +337,7 @@ export class IpatoolApi {
         args,
         accountId,
         secrets: [password, authCode ?? ''],
+        forLogin: true,
         timeoutMs: 180_000
       })
     } catch (error) {
@@ -389,6 +403,7 @@ export class IpatoolApi {
       label: 'Account info',
       args: accountInfoArgs(),
       accountId,
+      touchAccount: false,
       timeoutMs: 60_000
     })
     const success = this.assertSuccess(result, 'Could not read account info')

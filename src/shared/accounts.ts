@@ -243,9 +243,19 @@ export function allocateAccountName(profiles: AccountProfile[], counter: number)
   return { name: `Account ${next}`, counter: next + 1 }
 }
 
-/** Most recently used first; ties fall back to creation order. */
-export function sortAccounts(profiles: AccountProfile[]): AccountProfile[] {
-  return [...profiles].sort((a, b) => b.lastUsedAt - a.lastUsedAt || a.createdAt - b.createdAt)
+/**
+ * Active account first (so the list never looks like it switched when a
+ * background check updates `lastUsedAt`); then most recently used; ties fall
+ * back to creation order.
+ */
+export function sortAccounts(profiles: AccountProfile[], activeId?: string): AccountProfile[] {
+  return [...profiles].sort((a, b) => {
+    if (activeId) {
+      if (a.id === activeId && b.id !== activeId) return -1
+      if (b.id === activeId && a.id !== activeId) return 1
+    }
+    return b.lastUsedAt - a.lastUsedAt || a.createdAt - b.createdAt
+  })
 }
 
 /** The id of the profile to treat as active, falling back to the first one. */

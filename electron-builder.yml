@@ -27,6 +27,11 @@ files:
   - package.json
   - "!**/*.map"
 
+# Toast/notification icon (Windows shows AUMID without a real image otherwise).
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+
 asar: true
 asarUnpack: []
 compression: maximum

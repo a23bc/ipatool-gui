@@ -180,6 +180,9 @@ const api: RendererApi = {
   },
   close: (): void => {
     ipcRenderer.send(IPC.WindowClose)
+  },
+  setChromeDimmed: (dimmed: boolean): void => {
+    ipcRenderer.send(IPC.WindowSetChromeDimmed, dimmed)
   }
 }
 

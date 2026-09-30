@@ -8,6 +8,7 @@
  */
 
 import { BrowserWindow, clipboard, dialog, ipcMain, shell, nativeTheme, app, Notification } from 'electron'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type {
@@ -27,7 +28,7 @@ import { IPC } from '../shared/ipc'
 import { quoteCommand } from '../shared/format'
 import { redactArgs } from '../shared/redact'
 import { parseImportList } from '../shared/import'
-import { notificationBody } from '../shared/notifications'
+import { notificationCopy } from '../shared/notifications'
 import { expandUserPath } from './paths'
 import { AccountError, accounts, assertAccountId } from './accounts'
 import { ApiError, ipatoolApi } from './api'
@@ -44,6 +45,26 @@ export function broadcast<T>(channel: string, payload: T): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload)
   }
+}
+
+/**
+ * Icon for OS toasts. Windows falls back to the executable's icon when no png
+ * is packaged next to the app; without an explicit icon the toast looks blank.
+ */
+function notificationIconPath(): string | undefined {
+  const candidates = [
+    path.join(process.resourcesPath, 'icon.png'),
+    path.join(app.getAppPath(), 'build', 'icon.png'),
+    path.join(app.getAppPath(), '..', 'build', 'icon.png')
+  ]
+  for (const candidate of candidates) {
+    try {
+      if (existsSync(candidate)) return candidate
+    } catch {
+      /* keep looking */
+    }
+  }
+  return process.platform === 'win32' ? process.execPath : undefined
 }
 
 function failure(error: unknown, taskId = ''): OperationFailure {
@@ -559,6 +580,9 @@ export function registerIpc(): void {
     else win.maximize()
   })
   ipcMain.on(IPC.WindowClose, () => mainWindow()?.close())
+  ipcMain.on(IPC.WindowSetChromeDimmed, (_e, dimmed: boolean) => {
+    syncTitleBarOverlay(mainWindow(), dimmed === true)
+  })
 }
 
 /** Applies side effects whenever settings change. */
@@ -583,12 +607,30 @@ export function registerEventForwarding(): void {
   downloadQueue.on('progress', (progress) => broadcast('queue:progress', progress))
   downloadQueue.on('item-finished', (item: QueueItem) => {
     broadcast('queue:item-finished', item)
+
+    // Taskbar flash is always on - it is the quiet "look here" cue and does not
+    // depend on the notification setting.
+    const win = mainWindow()
+    if (win && !win.isDestroyed() && !win.isFocused()) {
+      try {
+        win.flashFrame(true)
+        win.once('focus', () => {
+          if (!win.isDestroyed()) win.flashFrame(false)
+        })
+      } catch {
+        /* flash is best effort */
+      }
+    }
+
+    // The setting only gates the OS toast.
     if (!settingsStore.getInternal().notifyOnComplete) return
     if (!Notification.isSupported()) return
     try {
+      const copy = notificationCopy(item, settingsStore.getInternal().locale || 'en')
       const notification = new Notification({
-        title: item.state === 'done' ? 'Download complete' : 'Download failed',
-        body: notificationBody(item),
+        title: APP_PRODUCT,
+        body: `${copy.title} · ${copy.body}`,
+        icon: notificationIconPath(),
         silent: item.state === 'done'
       })
       notification.on('click', () => {

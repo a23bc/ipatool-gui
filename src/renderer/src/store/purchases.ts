@@ -37,6 +37,7 @@ export interface PurchasesState {
   setFilter: (filter: string) => void
   load: (page?: number, append?: boolean) => Promise<void>
   loadMore: () => Promise<void>
+  hydrateFromCache: () => void
   toggle: (key: string) => void
   selectKeys: (keys: string[]) => void
   clearSelection: () => void
@@ -45,6 +46,33 @@ export interface PurchasesState {
 
 export function appKey(app: StoreApp): string {
   return `${app.id}|${app.bundleID}`
+}
+
+function cacheKey(accountId: string): string {
+  return `ipatool-purchases:${accountId}`
+}
+
+/** Last successful page set, so the tab can paint instantly on revisit. */
+function readCache(accountId: string): StoreApp[] {
+  if (!accountId) return []
+  try {
+    const raw = localStorage.getItem(cacheKey(accountId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? (parsed as StoreApp[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeCache(accountId: string, apps: StoreApp[]): void {
+  if (!accountId) return
+  try {
+    // Cap so a huge library cannot blow the localStorage quota.
+    localStorage.setItem(cacheKey(accountId), JSON.stringify(apps.slice(0, 1000)))
+  } catch {
+    /* quota / private mode - cache is optional */
+  }
 }
 
 export function visibleApps(apps: StoreApp[], filter: string): StoreApp[] {
@@ -113,13 +141,20 @@ export const usePurchasesStore = create<PurchasesState>()((set, get) => ({
     }
 
     const incoming = result.data.apps
+    const prev = get().apps
     // `append` only merges when the pages so far belong to the same account; a
-    // switch (which resets `apps`) must never inherit them.
-    const existing = append && get().accountId === accountId ? get().apps : []
-    // De-duplicate across pages: Apple can repeat an app when the catalogue
-    // shifts between requests.
-    const seen = new Set(existing.map(appKey))
-    const merged = existing.concat(incoming.filter((app) => !seen.has(appKey(app))))
+    // switch (which resets `apps`) must never inherit them. A non-append page 1
+    // with an already-populated list is an incremental refresh: merge instead of
+    // wiping pages the user scrolled through.
+    const mergeIntoExisting =
+      get().accountId === accountId &&
+      (append || (page === 1 && !append && prev.length > 0))
+    const byKey = new Map<string, StoreApp>()
+    if (mergeIntoExisting) {
+      for (const app of prev) byKey.set(appKey(app), app)
+    }
+    for (const app of incoming) byKey.set(appKey(app), app)
+    const merged = mergeIntoExisting ? Array.from(byKey.values()) : incoming
 
     set({
       apps: merged,
@@ -131,6 +166,7 @@ export const usePurchasesStore = create<PurchasesState>()((set, get) => ({
       error: null,
       accountId
     })
+    writeCache(accountId, merged)
   },
 
   async loadMore() {
@@ -173,6 +209,23 @@ export const usePurchasesStore = create<PurchasesState>()((set, get) => ({
       accountId: currentAccountId(),
       epoch: state.epoch + 1
     }))
+  },
+
+  /** Paint last-known rows immediately, then let the view refresh page 1. */
+  hydrateFromCache() {
+    const accountId = currentAccountId()
+    if (!accountId) return
+    const cached = readCache(accountId)
+    if (cached.length === 0) return
+    set((state) => {
+      if (state.loading || state.apps.length > 0) return state
+      return {
+        apps: cached,
+        loaded: true,
+        accountId,
+        epoch: state.epoch
+      }
+    })
   }
 }))
 

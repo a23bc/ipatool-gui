@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import type { Platform, StoreApp } from '@shared/types'
 import { useAppStore } from '@renderer/store/app'
@@ -38,6 +38,7 @@ export function PurchasesView(): ReactNode {
 
   const load = usePurchasesStore((state) => state.load)
   const loadMore = usePurchasesStore((state) => state.loadMore)
+  const hydrateFromCache = usePurchasesStore((state) => state.hydrateFromCache)
   const setFilter = usePurchasesStore((state) => state.setFilter)
   const setPlatform = usePurchasesStore((state) => state.setPlatform)
   const toggle = usePurchasesStore((state) => state.toggle)
@@ -45,6 +46,15 @@ export function PurchasesView(): ReactNode {
 
   const enqueue = useQueueStore((state) => state.enqueue)
   const setAuthOpen = useUiStore((state) => state.setAuthOpen)
+
+  // Tab entry: paint the cached list at once, then refresh page 1 in the
+  // background (merge, not replace - pages the user scrolled through stay).
+  useEffect(() => {
+    hydrateFromCache()
+    if (!account) return
+    void load(1, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: each tab switch remounts this view
+  }, [])
 
   const rows = useMemo(() => visibleApps(apps, filter), [apps, filter])
   const hasMore = totalCount > 0 ? apps.length < totalCount : false
@@ -184,11 +194,17 @@ export function PurchasesView(): ReactNode {
       ) : null}
 
       {!loaded && account ? (
-        <EmptyState icon="layers" title={t('purchases.empty.title')} body={t('purchases.empty.body')}>
-          <button type="button" className="btn btn-primary" onClick={() => void load(1, false)}>
-            <Icon name="refresh" size={14} />
-            {t('purchases.load')}
-          </button>
+        <EmptyState
+          icon="layers"
+          title={t('purchases.empty.title')}
+          body={loading ? t('purchases.loading') : t('purchases.empty.body')}
+        >
+          {loading ? null : (
+            <button type="button" className="btn btn-primary" onClick={() => void load(1, false)}>
+              <Icon name="refresh" size={14} />
+              {t('purchases.load')}
+            </button>
+          )}
         </EmptyState>
       ) : null}
 

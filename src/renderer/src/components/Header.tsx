@@ -146,6 +146,9 @@ export const Header = memo(function Header(): ReactNode {
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault()
+              // Searching from any tab must land on the search view - running
+              // in the background while the user stares at Downloads is confusing.
+              setView('search')
               void run()
             }
             if (event.key === 'Escape') {
@@ -159,7 +162,10 @@ export const Header = memo(function Header(): ReactNode {
         value={platform as Platform}
         onChange={(next) => {
           setPlatform(next)
-          if (term.trim() !== '') void run()
+          if (term.trim() !== '') {
+            setView('search')
+            void run()
+          }
         }}
         className="no-drag max-w-[170px]"
       />
@@ -199,7 +205,6 @@ export const StatusBar = memo(function StatusBar(): ReactNode {
   const appInfo = useAppStore((state) => state.appInfo)
   const stats = useQueueStore((state) => state.stats)
   const setPaletteOpen = useUiStore((state) => state.setPaletteOpen)
-  const setAccountsOpen = useUiStore((state) => state.setAccountsOpen)
   const padding = useChromePadding()
 
   const activeView = accounts.accounts.find((view) => view.id === accounts.activeId)
@@ -224,10 +229,8 @@ export const StatusBar = memo(function StatusBar(): ReactNode {
         {t('statusbar.engine')}: {engine.version ?? t(`engine.state.${engine.state}`)}
       </span>
 
-      <button
-        type="button"
-        className="no-drag flex min-w-0 items-center gap-1.5 truncate rounded px-1 py-0.5 transition-colors hover:bg-[var(--row-hover)]"
-        onClick={() => setAccountsOpen(true)}
+      <span
+        className="flex min-w-0 items-center gap-1.5 truncate"
         title={activeView?.conflict ? t(`accounts.conflict.${activeView.conflict}`) : accountLabel}
       >
         {activeView?.conflict ? (
@@ -237,7 +240,7 @@ export const StatusBar = memo(function StatusBar(): ReactNode {
         {accounts.accounts.length > 1 ? (
           <span className="faint"> · {t('accounts.count', { n: accounts.accounts.length })}</span>
         ) : null}
-      </button>
+      </span>
 
       <span className="truncate">
         {t('statusbar.queue')}: {stats.running > 0 ? t('statusbar.active', { n: stats.running }) : t('statusbar.idle')}

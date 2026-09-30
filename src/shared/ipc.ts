@@ -102,7 +102,9 @@ export const IPC = Object.freeze({
 
   WindowMinimize: 'window:minimize',
   WindowToggleMaximize: 'window:toggle-maximize',
-  WindowClose: 'window:close'
+  WindowClose: 'window:close',
+  /** Dim/undim the OS caption buttons while a modal scrim is showing. */
+  WindowSetChromeDimmed: 'window:set-chrome-dimmed'
   // Frozen at runtime too, not just `as const` at compile time: every process
   // shares this live object, so a compromised renderer must not be able to
   // re-point an innocuous channel name at a sensitive handler.
@@ -277,6 +279,8 @@ export interface RendererApi {
   minimize(): void
   toggleMaximize(): void
   close(): void
+  /** Dim OS caption buttons while a modal scrim is covering the window. */
+  setChromeDimmed(dimmed: boolean): void
 }
 
 declare global {

@@ -128,10 +128,16 @@ export interface NumberInputProps {
   onChange: (value: number) => void
   min: number
   max: number
+  /** How far the −/+ buttons jump. The field's own spinner is always ±1. */
   step?: number
 }
 
 export function NumberInput({ value, onChange, min, max, step = 1 }: NumberInputProps): ReactNode {
+  // Native spinners (~16px) plus digits for the widest bound; never let a
+  // 5-digit max be clipped the way a fixed 52px box clipped 2000.
+  const digits = String(Math.max(Math.abs(min), Math.abs(max), Math.abs(value))).length
+  const width = Math.max(56, 18 + digits * 9)
+
   return (
     <div className="flex items-center gap-1">
       <button
@@ -149,7 +155,10 @@ export function NumberInput({ value, onChange, min, max, step = 1 }: NumberInput
         value={value}
         min={min}
         max={max}
-        step={step}
+        // Fine adjustment inside the field is always a single unit; the
+        // outer −/+ buttons keep the coarser `step`.
+        step={1}
+        style={{ width }}
         onChange={(event) => {
           const next = Number(event.target.value)
           if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, Math.round(next))))

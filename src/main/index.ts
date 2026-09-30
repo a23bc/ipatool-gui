@@ -8,8 +8,9 @@
  */
 
 import { rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { applySettings, publishAccounts, registerEventForwarding, registerIpc } from './ipc'
 import { createMainWindow } from './window'
@@ -39,8 +40,46 @@ if (!gotLock) {
   void bootstrap()
 }
 
+/**
+ * Windows toast headers show the *shortcut* name that owns the AppUserModelID.
+ * Without one (portable exe, or a shortcut registered under a different AUMID)
+ * the header falls back to the raw AUMID `dev.ipatoolgui.desktop`. Create or
+ * repair a Start Menu shortcut so the toast says "IPATool GUI" and uses the
+ * exe's embedded icon.
+ */
+function ensureWindowsToastShortcut(): void {
+  if (process.platform !== 'win32') return
+  try {
+    const startMenu = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs')
+    const shortcutPath = path.join(startMenu, 'IPATool GUI.lnk')
+    const options: Electron.ShortcutDetails = {
+      target: process.execPath,
+      appUserModelId: 'dev.ipatoolgui.desktop',
+      icon: process.execPath,
+      iconIndex: 0
+    }
+    if (existsSync(shortcutPath)) {
+      // Rewrite so an older installer's AUMID / name cannot stick.
+      shell.writeShortcutLink(shortcutPath, 'update', options)
+    } else {
+      shell.writeShortcutLink(shortcutPath, 'create', options)
+    }
+  } catch {
+    /* toast still works; it just keeps whatever name the OS has */
+  }
+}
+
 async function bootstrap(): Promise<void> {
+  // Windows notifications are scoped to an AppUserModelID; without this they
+  // silently never appear. Keep it equal to electron-builder's appId.
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('dev.ipatoolgui.desktop')
+  }
+  app.setName('IPATool GUI')
+
   await app.whenReady()
+
+  ensureWindowsToastShortcut()
 
   const settings = await settingsStore.load()
   nativeTheme.themeSource = settings.theme

@@ -71,6 +71,12 @@ export function Select<T extends string | number>({
     const trigger = triggerRef.current
     if (!trigger) return
     const rect = trigger.getBoundingClientRect()
+    // Numeric / short labels sit next to a reserved check slot. A menu that is
+    // only as wide as the trigger (e.g. "8") leaves the label ~0px and the
+    // selected row reads as blank or a single clipped digit. Always open wide
+    // enough for the longest label plus the check chrome.
+    const longestLabel = options.reduce((n, option) => Math.max(n, option.label.length), 0)
+    const contentMin = Math.min(280, Math.max(menuMinWidth, longestLabel * 8 + 52))
     setPlacement(
       placeMenu(
         {
@@ -82,10 +88,10 @@ export function Select<T extends string | number>({
         },
         { width: window.innerWidth, height: window.innerHeight },
         options.length,
-        menuMinWidth
+        contentMin
       )
     )
-  }, [menuMinWidth, options.length])
+  }, [menuMinWidth, options])
 
   // A layout effect, so the popup is measured and placed before it paints: with
   // a plain effect it flashes at the top-left corner of the window first.
