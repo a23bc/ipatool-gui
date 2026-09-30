@@ -39,7 +39,9 @@
 
 ### 截图
 
-> 截图待补。应用为深色优先的现代界面，列表全虚拟化滚动。
+| 搜索与账户切换 | 账户管理 |
+| --- | --- |
+| ![搜索与账户切换](docs/images/search-account-switcher.png) | ![账户管理](docs/images/account-manager.png) |
 
 ---
 

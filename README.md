@@ -47,7 +47,9 @@ the official GitHub releases and verifies the published SHA-256.
 
 ### Screenshots
 
-> Screenshots coming soon. Dark-first modern UI with fully virtualized lists.
+| Search & account switcher | Account manager |
+| --- | --- |
+| ![Search and account switcher](docs/images/search-account-switcher.png) | ![Account manager](docs/images/account-manager.png) |
 
 ---
 
