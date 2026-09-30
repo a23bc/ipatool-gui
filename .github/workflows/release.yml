@@ -249,20 +249,38 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           if [[ "$TAG" != v* ]]; then TAG="v$(date +%Y.%m.%d)-${GITHUB_RUN_ID}"; fi
-          gh release create "$TAG" \
-            --title "IPATool GUI ${TAG}" \
-            --draft \
-            --notes "Windows: NSIS installer + portable exe (x64). Linux: deb + AppImage, built separately for x64 and arm64. macOS: runnable .app.tar.gz for x64 and arm64 (build the dmg installer locally with npm run dist:mac).
+          # Notes go through a file: the body has quotes and backticks that
+          # would otherwise be eaten by the shell inside --notes "...".
+          cat > /tmp/release-notes.md <<'EOF'
+          ## IPATool GUI
 
-          macOS builds are ad-hoc code signed but **not notarized**, so Gatekeeper may report the
+          Windows: NSIS installer + portable exe (x64).
+          Linux: deb + AppImage, built separately for x64 and arm64.
+          macOS: runnable .app.tar.gz for x64 and arm64 (build the dmg installer locally with `npm run dist:mac`).
+
+          ### macOS
+
+          Builds are ad-hoc code signed but **not notarized**, so Gatekeeper may report the
           app as "damaged" - that is the download quarantine flag, not a broken bundle. Move it to
           /Applications and run:
-            xattr -dr com.apple.quarantine "/Applications/IPATool GUI.app"
+
+          ```
+          xattr -dr com.apple.quarantine "/Applications/IPATool GUI.app"
+          ```
+
           then open it normally (once is enough). Extract with Finder or `tar -xzf`, never with a
           tool that drops symlinks or the executable bit.
-          On Windows accept the SmartScreen prompt.
+
+          ### Windows
+
+          Accept the SmartScreen prompt.
 
           The app itself downloads and verifies [ipatool](https://github.com/majd/ipatool) on first launch - it is not bundled.
 
-          This release was created as a **draft** and is not public." \
+          This release was created as a **draft** and is not public.
+          EOF
+          gh release create "$TAG" \
+            --title "IPATool GUI ${TAG}" \
+            --draft \
+            --notes-file /tmp/release-notes.md \
             artifacts/*
