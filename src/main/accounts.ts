@@ -183,6 +183,7 @@ export class AccountRegistry extends EventEmitter {
       name: profile.name,
       remark: profile.remark,
       email: profile.email,
+      dsid: profile.dsid,
       signedIn: this.hasRecordedSession(profile),
       active: profile.id === this.activeId,
       credentialStore: profile.credentialStore,

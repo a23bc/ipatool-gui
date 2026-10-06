@@ -274,6 +274,8 @@ export interface AccountView {
   name: string
   remark: string
   email: string
+  /** DirectoryServicesID - used to match device install-account DSIDs. */
+  dsid: string
   /** True when the account's own session answered an identity probe. */
   signedIn: boolean
   active: boolean
@@ -397,6 +399,44 @@ export interface AppInfoPayload {
 }
 
 export type NodePlatform = 'darwin' | 'linux' | 'win32'
+
+/* ------------------------------------------------------------------ *
+ * Devices (iOS over usbmux / pymobiledevice3)
+ * ------------------------------------------------------------------ */
+
+export interface DeviceInfo {
+  udid: string
+  name: string | null
+  /** e.g. iPhone9,2 */
+  productType: string | null
+  /** e.g. 15.8.8 */
+  productVersion: string | null
+  buildVersion: string | null
+  connection: string
+  deviceClass: string | null
+}
+
+export interface DeviceApp {
+  bundleId: string
+  name: string
+  version: string
+  build: string
+  applicationType: string
+  /**
+   * Apple ID DSID that originally installed this app on the device.
+   * Not the same as the ipatool login session - only a matching hint.
+   */
+  applicationDsid: number | string | null
+  signerIdentity: string | null
+  isAppClip: boolean
+}
+
+export interface DevicesProbe {
+  ok: boolean
+  executable: string | null
+  version: string | null
+  message?: string
+}
 
 export interface OperationResult<T> {
   ok: true

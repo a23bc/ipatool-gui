@@ -183,7 +183,10 @@ const api: RendererApi = {
   },
   setChromeDimmed: (dimmed: boolean): void => {
     ipcRenderer.send(IPC.WindowSetChromeDimmed, dimmed)
-  }
+  },
+  devicesProbe: () => ipcRenderer.invoke(IPC.DevicesProbe),
+  devicesList: () => ipcRenderer.invoke(IPC.DevicesList),
+  devicesApps: (udid: string) => ipcRenderer.invoke(IPC.DevicesApps, udid)
 }
 
 // Expose as a frozen object so page scripts cannot monkey-patch the bridge.

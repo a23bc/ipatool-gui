@@ -8,9 +8,9 @@
 import { create } from 'zustand'
 import type { StoreApp } from '@shared/types'
 
-export type View = 'search' | 'purchases' | 'downloads' | 'activity' | 'console' | 'settings'
+export type View = 'search' | 'purchases' | 'downloads' | 'devices' | 'activity' | 'console' | 'settings'
 
-export const VIEWS: View[] = ['search', 'purchases', 'downloads', 'activity', 'console', 'settings']
+export const VIEWS: View[] = ['search', 'purchases', 'downloads', 'devices', 'activity', 'console', 'settings']
 
 export type ToastKind = 'info' | 'success' | 'warn' | 'error'
 

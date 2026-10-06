@@ -15,12 +15,13 @@ interface NavItem {
 const LIBRARY: NavItem[] = [
   { view: 'search', icon: 'search', labelKey: 'nav.search', shortcut: '1' },
   { view: 'purchases', icon: 'layers', labelKey: 'nav.purchases', shortcut: '2' },
-  { view: 'downloads', icon: 'download', labelKey: 'nav.downloads', shortcut: '3' }
+  { view: 'downloads', icon: 'download', labelKey: 'nav.downloads', shortcut: '3' },
+  { view: 'devices', icon: 'phone', labelKey: 'nav.devices', shortcut: '4' }
 ]
 
 const TOOLS: NavItem[] = [
-  { view: 'activity', icon: 'activity', labelKey: 'nav.activity', shortcut: '4' },
-  { view: 'console', icon: 'terminal', labelKey: 'nav.console', shortcut: '5' },
+  { view: 'activity', icon: 'activity', labelKey: 'nav.activity', shortcut: '5' },
+  { view: 'console', icon: 'terminal', labelKey: 'nav.console', shortcut: '6' },
   { view: 'settings', icon: 'settings', labelKey: 'nav.settings', shortcut: ',' }
 ]
 
