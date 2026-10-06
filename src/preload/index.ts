@@ -150,6 +150,8 @@ const api: RendererApi = {
 
   getArtwork: (appId: number, country?: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC.ArtworkGet, appId, country),
+  getArtworkByBundle: (bundleId: string, country?: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.ArtworkGetByBundle, bundleId, country),
   clearArtworkCache: (): Promise<number> => ipcRenderer.invoke(IPC.ArtworkClearCache),
 
   pickDirectory: (title?: string, defaultPath?: string): Promise<string | null> =>

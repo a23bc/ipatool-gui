@@ -9,28 +9,31 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import type { DeviceApp } from '@shared/types'
-import { filterDeviceApps, formatDsid } from '@shared/devices'
+import { filterDeviceApps, formatDsid, formatInstallAccount, matchAccountByDsid } from '@shared/devices'
 import { useAppStore } from '@renderer/store/app'
 import { useDevicesStore } from '@renderer/store/devices'
 import { useQueueStore } from '@renderer/store/queue'
 import { useSearchStore } from '@renderer/store/search'
 import { useUiStore } from '@renderer/store/ui'
+import { AppIcon } from '@renderer/components/AppIcon'
 import { EmptyState } from '@renderer/components/EmptyState'
 import { Icon, Spinner } from '@renderer/components/Icon'
 import { VirtualList } from '@renderer/components/VirtualList'
-import { accountLabelForApp } from '@renderer/store/devices'
 
 const ROW_HEIGHT = 52
 
 function AppRow({ app }: { app: DeviceApp }): ReactNode {
   const t = useAppStore((state) => state.t)
+  const labelMode = useAppStore((state) => state.settings.deviceAccountLabel)
+  const accounts = useAppStore((state) => state.accounts.accounts)
   const enqueue = useQueueStore((state) => state.enqueue)
   const setTerm = useSearchStore((state) => state.setTerm)
   const runSearch = useSearchStore((state) => state.run)
   const setView = useUiStore((state) => state.setView)
   const toast = useUiStore((state) => state.toast)
 
-  const accountLabel = accountLabelForApp(app)
+  const matched = matchAccountByDsid(app, accounts)
+  const accountLabel = formatInstallAccount(matched, labelMode, formatDsid(app.applicationDsid))
 
   const download = (): void => {
     void enqueue([
@@ -51,6 +54,8 @@ function AppRow({ app }: { app: DeviceApp }): ReactNode {
 
   return (
     <div className="flex h-full items-center gap-3 px-4" style={{ borderBottom: '1px solid var(--border)' }}>
+      <AppIcon appId={0} bundleID={app.bundleId} name={app.name} size={32} radius={8} />
+
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <span className="truncate text-[13px] font-medium leading-tight">{app.name}</span>
         <span className="mono mt-0.5 truncate faint">{app.bundleId}</span>
@@ -63,13 +68,13 @@ function AppRow({ app }: { app: DeviceApp }): ReactNode {
       <span
         className="w-[150px] shrink-0 truncate text-right text-[11px]"
         title={
-          accountLabel
+          matched
             ? `${t('devices.installAccount')}: ${formatDsid(app.applicationDsid)} → ${t('devices.accountMatched')}`
             : `${t('devices.installAccount')}: ${formatDsid(app.applicationDsid)} · ${t('devices.accountUnmatched')}`
         }
-        style={{ color: accountLabel ? 'var(--success)' : 'var(--text-faint)' }}
+        style={{ color: matched ? 'var(--success)' : 'var(--text-faint)' }}
       >
-        {accountLabel || formatDsid(app.applicationDsid)}
+        {accountLabel}
       </span>
 
       <div className="flex shrink-0 items-center gap-1">
@@ -96,6 +101,8 @@ function AppRow({ app }: { app: DeviceApp }): ReactNode {
 
 export function DevicesView(): ReactNode {
   const t = useAppStore((state) => state.t)
+  const labelMode = useAppStore((state) => state.settings.deviceAccountLabel)
+  const updateSettings = useAppStore((state) => state.updateSettings)
   const probe = useDevicesStore((state) => state.probe)
   const devices = useDevicesStore((state) => state.devices)
   const selectedUdid = useDevicesStore((state) => state.selectedUdid)
@@ -166,6 +173,21 @@ export function DevicesView(): ReactNode {
         ) : null}
 
         <div className="ml-auto flex items-center gap-2">
+          <select
+            className="input input-w-sm"
+            value={labelMode}
+            title={t('devices.installAccountHelp')}
+            onChange={(event) =>
+              void updateSettings({
+                deviceAccountLabel: event.target.value as 'email' | 'name' | 'remark'
+              })
+            }
+          >
+            <option value="email">{t('devices.label.email')}</option>
+            <option value="name">{t('devices.label.name')}</option>
+            <option value="remark">{t('devices.label.remark')}</option>
+          </select>
+
           {devices.length > 1 ? (
             <select
               className="input input-w-md"

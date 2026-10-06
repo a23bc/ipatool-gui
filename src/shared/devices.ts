@@ -13,6 +13,7 @@ export interface DsidHolder {
   dsid: string
   name: string
   email: string
+  remark?: string
   id: string
 }
 
@@ -53,6 +54,32 @@ export function formatDsid(value: number | string | null | undefined): string {
   const key = dsidKey(value)
   if (key === '') return '—'
   return key
+}
+
+export type AccountLabelField = 'email' | 'name' | 'remark'
+
+/**
+ * Label for a matched account in the Devices list.
+ * User picks email / name / remark; empty fields fall back through the chain.
+ */
+export function formatInstallAccount(
+  account: { name: string; email: string; remark?: string } | null,
+  mode: AccountLabelField,
+  fallback: string
+): string {
+  if (!account) return fallback
+  const remark = account.remark ?? ''
+  const chain: Array<[AccountLabelField, string]> = [
+    [mode, mode === 'remark' ? remark : account[mode]],
+    ['email', account.email],
+    ['name', account.name],
+    ['remark', remark]
+  ]
+  for (const [, value] of chain) {
+    const text = value.trim()
+    if (text !== '') return text
+  }
+  return fallback
 }
 
 /** Client-side name/bundle filter for the device app list. */

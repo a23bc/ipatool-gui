@@ -16,6 +16,8 @@ function hueFor(seed: string | number): number {
 export interface AppIconProps {
   appId: number
   name: string
+  /** Fallback artwork key when there is no App Store id (device list). */
+  bundleID?: string
   size?: number
   radius?: number
 }
@@ -30,16 +32,23 @@ export interface AppIconProps {
 export const AppIcon = memo(function AppIcon({
   appId,
   name,
+  bundleID,
   size = 36,
   radius = 9
 }: AppIconProps): ReactNode {
-  const artwork = useArtworkStore((state) => (appId > 0 ? state.byId[appId] : undefined))
+  const byId = useArtworkStore((state) => state.byId)
   const request = useArtworkStore((state) => state.request)
+  const requestByBundle = useArtworkStore((state) => state.requestByBundle)
   const enabled = useAppStore((state) => state.settings.artworkEnabled)
 
+  const key = appId > 0 ? `id:${appId}` : bundleID ? `bundle:${bundleID}` : ''
+  const artwork = key ? (byId[key] ?? undefined) : undefined
+
   useEffect(() => {
-    if (enabled && appId > 0) request(appId)
-  }, [appId, enabled, request])
+    if (!enabled) return
+    if (appId > 0) request(appId)
+    else if (bundleID) requestByBundle(bundleID)
+  }, [appId, bundleID, enabled, request, requestByBundle])
 
   const style: CSSProperties = {
     width: size,
@@ -64,7 +73,7 @@ export const AppIcon = memo(function AppIcon({
     )
   }
 
-  const hue = hueFor(appId || name)
+  const hue = hueFor(appId || bundleID || name)
   return (
     <div
       aria-hidden="true"

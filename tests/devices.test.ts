@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { dsidKey, filterDeviceApps, formatDsid, matchAccountByDsid } from '@shared/devices'
+import {
+  dsidKey,
+  filterDeviceApps,
+  formatDsid,
+  formatInstallAccount,
+  matchAccountByDsid
+} from '@shared/devices'
 import type { DeviceApp } from '@shared/types'
 
 const app = (dsid: number | string | null): Pick<DeviceApp, 'applicationDsid'> => ({ applicationDsid: dsid })
@@ -27,6 +33,24 @@ describe('matchAccountByDsid', () => {
   it('returns null when unknown or missing', () => {
     expect(matchAccountByDsid(app(999), [account('a1bcdefg', '1')])).toBeNull()
     expect(matchAccountByDsid(app(null), [])).toBeNull()
+  })
+})
+
+describe('formatInstallAccount', () => {
+  const local = {
+    name: 'Jane',
+    email: 'jane@example.com',
+    remark: '工作号',
+    id: 'a1bcdefg',
+    dsid: '20825825307'
+  }
+
+  it('honours the chosen field and falls back when empty', () => {
+    expect(formatInstallAccount(local, 'email', '—')).toBe('jane@example.com')
+    expect(formatInstallAccount(local, 'name', '—')).toBe('Jane')
+    expect(formatInstallAccount(local, 'remark', '—')).toBe('工作号')
+    expect(formatInstallAccount({ ...local, remark: '' }, 'remark', '—')).toBe('jane@example.com')
+    expect(formatInstallAccount(null, 'email', '20825825307')).toBe('20825825307')
   })
 })
 

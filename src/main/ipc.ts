@@ -403,6 +403,9 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.ArtworkGet, (_e, appId: number, country?: string) =>
     artworkCache.get(Number(appId), country).catch(() => null)
   )
+  ipcMain.handle(IPC.ArtworkGetByBundle, (_e, bundleId: string, country?: string) =>
+    artworkCache.getByBundleId(String(bundleId ?? ''), country).catch(() => null)
+  )
   ipcMain.handle(IPC.ArtworkClearCache, () => artworkCache.clear())
 
   /* ---------------------------------------------------------------- *

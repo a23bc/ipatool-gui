@@ -356,6 +356,8 @@ export interface Settings {
   /** Country used only for artwork lookup; ipatool itself takes the storefront
    *  from the signed-in account. */
   artworkCountry: string
+  /** Which account field the Devices list shows for a matched install DSID. */
+  deviceAccountLabel: 'email' | 'name' | 'remark'
   maxLogLines: number
   resumeQueueOnLaunch: boolean
   notifyOnComplete: boolean

@@ -84,6 +84,7 @@ export const IPC = Object.freeze({
   QueueImport: 'queue:import',
 
   ArtworkGet: 'artwork:get',
+  ArtworkGetByBundle: 'artwork:get-by-bundle',
   ArtworkClearCache: 'artwork:clear-cache',
 
   FsPickDirectory: 'fs:pick-directory',
@@ -261,6 +262,7 @@ export interface RendererApi {
   /* --- artwork ---------------------------------------------------- */
   /** Returns a data URL, or null when unavailable. Cached on disk by main. */
   getArtwork(appId: number, country?: string): Promise<string | null>
+  getArtworkByBundle(bundleId: string, country?: string): Promise<string | null>
   clearArtworkCache(): Promise<number>
 
   /* --- filesystem & shell ----------------------------------------- */

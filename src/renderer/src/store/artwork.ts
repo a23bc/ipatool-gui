@@ -11,14 +11,15 @@ import { create } from 'zustand'
 import { useAppStore } from './app'
 
 export interface ArtworkState {
-  byId: Record<number, string | null>
+  byId: Record<string, string | null>
   request: (appId: number) => void
+  requestByBundle: (bundleId: string) => void
   invalidate: (appId: number) => void
   /** Drops every cached icon; mirrors `window.api.clearArtworkCache()`. */
   invalidateAll: () => void
 }
 
-const inflight = new Set<number>()
+const inflight = new Set<string>()
 
 export const useArtworkStore = create<ArtworkState>()((set, get) => ({
   byId: {},
@@ -26,28 +27,52 @@ export const useArtworkStore = create<ArtworkState>()((set, get) => ({
   request(appId) {
     if (!Number.isFinite(appId) || appId <= 0) return
     if (!useAppStore.getState().settings.artworkEnabled) return
-    if (appId in get().byId) return
-    if (inflight.has(appId)) return
+    const key = `id:${appId}`
+    if (key in get().byId) return
+    if (inflight.has(key)) return
 
-    inflight.add(appId)
+    inflight.add(key)
     window.api
       .getArtwork(appId)
       .then((dataUrl) => {
-        set((state) => ({ byId: { ...state.byId, [appId]: dataUrl } }))
+        set((state) => ({ byId: { ...state.byId, [key]: dataUrl } }))
       })
       .catch(() => {
-        set((state) => ({ byId: { ...state.byId, [appId]: null } }))
+        set((state) => ({ byId: { ...state.byId, [key]: null } }))
       })
       .finally(() => {
-        inflight.delete(appId)
+        inflight.delete(key)
+      })
+  },
+
+  requestByBundle(bundleId) {
+    const bid = bundleId.trim()
+    if (bid === '') return
+    if (!useAppStore.getState().settings.artworkEnabled) return
+    const key = `bundle:${bid}`
+    if (key in get().byId) return
+    if (inflight.has(key)) return
+
+    inflight.add(key)
+    window.api
+      .getArtworkByBundle(bid)
+      .then((dataUrl) => {
+        set((state) => ({ byId: { ...state.byId, [key]: dataUrl } }))
+      })
+      .catch(() => {
+        set((state) => ({ byId: { ...state.byId, [key]: null } }))
+      })
+      .finally(() => {
+        inflight.delete(key)
       })
   },
 
   invalidate(appId) {
-    inflight.delete(appId)
+    const key = `id:${appId}`
+    inflight.delete(key)
     set((state) => {
       const next = { ...state.byId }
-      delete next[appId]
+      delete next[key]
       return { byId: next }
     })
   },
@@ -60,5 +85,5 @@ export const useArtworkStore = create<ArtworkState>()((set, get) => ({
 
 /** Convenience selector for a single icon. */
 export function selectArtwork(appId: number): string | null | undefined {
-  return useArtworkStore.getState().byId[appId]
+  return useArtworkStore.getState().byId[`id:${appId}`]
 }
