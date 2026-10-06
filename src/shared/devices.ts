@@ -22,7 +22,15 @@ export function dsidKey(value: number | string | null | undefined): string {
   return String(value).trim()
 }
 
-/** Best local account for a device app's install DSID, if any. */
+/**
+ * Best local account for a device app's install DSID, if any.
+ *
+ * Device `ApplicationDSID` is the Directory Services ID of the Apple ID that
+ * originally installed the app on the phone. ipatool stores the same DSID on
+ * each account record (`DirectoryServicesID`). Equal DSIDs mean "this app was
+ * installed with that Apple ID" — still only a hint for which account to
+ * *download* as; never switch sessions automatically.
+ */
 export function matchAccountByDsid(
   apps: Pick<DeviceApp, 'applicationDsid'>,
   accounts: DsidHolder[]
@@ -30,6 +38,14 @@ export function matchAccountByDsid(
   const key = dsidKey(apps.applicationDsid)
   if (key === '') return null
   return accounts.find((account) => dsidKey(account.dsid) === key) ?? null
+}
+
+/** True when the install DSID matches a local account. */
+export function installAccountKnown(
+  app: Pick<DeviceApp, 'applicationDsid'>,
+  accounts: DsidHolder[]
+): boolean {
+  return matchAccountByDsid(app, accounts) !== null
 }
 
 /** Short label for an install DSID in table cells. */

@@ -61,8 +61,12 @@ function AppRow({ app }: { app: DeviceApp }): ReactNode {
       </span>
 
       <span
-        className="w-[140px] shrink-0 truncate text-right text-[11px]"
-        title={accountLabel ? `${t('devices.installAccount')}: ${formatDsid(app.applicationDsid)}` : formatDsid(app.applicationDsid)}
+        className="w-[150px] shrink-0 truncate text-right text-[11px]"
+        title={
+          accountLabel
+            ? `${t('devices.installAccount')}: ${formatDsid(app.applicationDsid)} → ${t('devices.accountMatched')}`
+            : `${t('devices.installAccount')}: ${formatDsid(app.applicationDsid)} · ${t('devices.accountUnmatched')}`
+        }
         style={{ color: accountLabel ? 'var(--success)' : 'var(--text-faint)' }}
       >
         {accountLabel || formatDsid(app.applicationDsid)}
@@ -148,6 +152,12 @@ export function DevicesView(): ReactNode {
         style={{ borderColor: 'var(--border)' }}
       >
         <span className="text-[12.5px] font-semibold">{t('nav.devices')}</span>
+        {probe?.ok ? (
+          <span className="faint text-[11px]">
+            {probe.source === 'managed' ? t('devices.source.managed') : t('devices.source.system')}
+            {probe.version ? ` · ${probe.version}` : ''}
+          </span>
+        ) : null}
         {device ? (
           <span className="faint text-[11.5px]">
             {device.name || device.productType || t('devices.untitled')} · iOS {device.productVersion || '?'} ·{' '}
@@ -207,7 +217,15 @@ export function DevicesView(): ReactNode {
         />
       ) : null}
 
-      {device && apps.length === 0 && !appsLoading && !error ? (
+      {(listLoading || appsLoading) && rows.length === 0 && !error ? (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+          <Icon name="phone" size={36} className="faint" />
+          <Spinner size={18} />
+          <p className="faint text-[12px]">{appsLoading ? t('devices.loadingApps') : t('devices.loadingDevices')}</p>
+        </div>
+      ) : null}
+
+      {device && apps.length === 0 && !appsLoading && !listLoading && !error ? (
         <EmptyState icon="phone" title={t('devices.noApps.title')} body={t('devices.noApps.body')} />
       ) : null}
 
@@ -219,7 +237,9 @@ export function DevicesView(): ReactNode {
           >
             <span className="flex-1">{t('devices.column.app')}</span>
             <span className="w-[64px] text-right">{t('devices.column.version')}</span>
-            <span className="w-[140px] text-right">{t('devices.installAccount')}</span>
+            <span className="w-[150px] text-right" title={t('devices.installAccountHelp')}>
+              {t('devices.installAccount')}
+            </span>
             <span className="w-[56px]" />
           </div>
           <VirtualList

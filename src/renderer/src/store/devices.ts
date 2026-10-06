@@ -25,7 +25,7 @@ export interface DevicesState {
   init: () => Promise<void>
   installRuntime: () => Promise<void>
   installing: boolean
-  refreshDevices: () => Promise<void>
+  refreshDevices: (opts?: { fromInit?: boolean }) => Promise<void>
   select: (udid: string | null) => void
   refreshApps: () => Promise<void>
   setFilter: (value: string) => void
@@ -45,13 +45,21 @@ export const useDevicesStore = create<DevicesState>()((set, get) => ({
   onlyUser: true,
 
   async init() {
+    // StrictMode double-invokes effects; only probe/load once per mount cycle.
+    if (get().listLoading || get().appsLoading) return
+    if (get().probe?.ok && get().devices.length > 0) return
+    set({ listLoading: true, error: null })
     const probe = await window.api.devicesProbe()
     set({ probe })
-    if (!probe.ok) return
-    await get().refreshDevices()
+    if (!probe.ok) {
+      set({ listLoading: false })
+      return
+    }
+    await get().refreshDevices({ fromInit: true })
   },
 
   async installRuntime() {
+    if (get().installing) return
     set({ installing: true, error: null })
     try {
       const probe = await window.api.devicesInstall()
@@ -63,7 +71,8 @@ export const useDevicesStore = create<DevicesState>()((set, get) => ({
     }
   },
 
-  async refreshDevices() {
+  async refreshDevices(opts) {
+    if (get().listLoading && !opts?.fromInit) return
     set({ listLoading: true, error: null })
     const result = await window.api.devicesList()
     if (!result.ok) {

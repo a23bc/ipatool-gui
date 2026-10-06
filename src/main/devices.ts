@@ -18,6 +18,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import type { DeviceApp, DeviceInfo, DevicesProbe, Operation } from '../shared/types'
+import { taskRegistry } from './tasks'
 
 const BRIDGE_TIMEOUT_MS = 120_000
 const INSTALL_TIMEOUT_MS = 300_000
@@ -78,6 +79,20 @@ function basePython(): { cmd: string; args: string[] } {
   return process.platform === 'win32' ? { cmd: 'py', args: ['-3'] } : { cmd: 'python3', args: [] }
 }
 
+function utf8Env(extraPath: string[] = []): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    // Windows defaults to a legacy console codepage; without this, CJK app
+    // names from lockdown JSON turn into mojibake on the way through stdio.
+    PYTHONUTF8: '1',
+    PYTHONIOENCODING: 'utf-8'
+  }
+  if (extraPath.length > 0) {
+    env.PATH = [...extraPath, env.PATH ?? ''].join(path.delimiter)
+  }
+  return env
+}
+
 function runProcess(
   cmd: string,
   args: string[],
@@ -86,7 +101,7 @@ function runProcess(
   return new Promise((resolve) => {
     const child = spawn(cmd, args, {
       windowsHide: true,
-      env: opts.env ?? process.env,
+      env: opts.env ?? utf8Env(),
       stdio: ['ignore', 'pipe', 'pipe']
     })
     let out = ''
@@ -116,11 +131,10 @@ function runProcess(
 }
 
 async function probePmd3(pathPrefix: string[]): Promise<boolean> {
-  const env = { ...process.env }
-  if (pathPrefix.length > 0) {
-    env.PATH = [...pathPrefix, env.PATH ?? ''].join(path.delimiter)
-  }
-  const { code, out, err } = await runProcess('pymobiledevice3', ['version'], { env, timeoutMs: 15_000 })
+  const { code, out, err } = await runProcess('pymobiledevice3', ['version'], {
+    env: utf8Env(pathPrefix),
+    timeoutMs: 15_000
+  })
   return code === 0 && (out + err).trim().length > 0
 }
 
@@ -202,10 +216,7 @@ function runBridge<T>(runtime: ToolRuntime, args: string[], timeoutMs = BRIDGE_T
       return
     }
 
-    const env = { ...process.env }
-    if (runtime.pathPrefix.length > 0) {
-      env.PATH = [...runtime.pathPrefix, env.PATH ?? ''].join(path.delimiter)
-    }
+    const env = utf8Env(runtime.pathPrefix)
 
     const child = spawn(runtime.python, [...runtime.pythonArgs, script, ...args], {
       windowsHide: true,
@@ -249,17 +260,43 @@ function runBridge<T>(runtime: ToolRuntime, args: string[], timeoutMs = BRIDGE_T
   })
 }
 
-function toOperation<T>(payload: BridgePayload<T>, context: string): Operation<T> {
+function toOperation<T>(payload: BridgePayload<T>, context: string, taskId = ''): Operation<T> {
   if (payload.ok) {
-    return { ok: true, data: payload.data, taskId: '' }
+    return { ok: true, data: payload.data, taskId }
   }
   return {
     ok: false,
     error: payload.message || context,
     hint: payload.code,
     code: payload.code,
-    taskId: '',
+    taskId,
     exitCode: null
+  }
+}
+
+/** Runs a bridge call as an Activity task so device work is auditable. */
+async function withDeviceTask<T>(
+  label: string,
+  command: string[],
+  fn: () => Promise<BridgePayload<T>>
+): Promise<{ payload: BridgePayload<T>; taskId: string }> {
+  const handle = taskRegistry.create('device', label, command)
+  const taskId = handle.record.id
+  taskRegistry.system(taskId, `exec: pymobiledevice3 ${command.join(' ')}`, 'debug')
+  try {
+    const payload = await fn()
+    if (payload.ok) {
+      taskRegistry.finish(taskId, 'succeeded', 0)
+    } else {
+      taskRegistry.system(taskId, payload.message, 'warn')
+      taskRegistry.finish(taskId, 'failed', 1)
+    }
+    return { payload, taskId }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    taskRegistry.system(taskId, message, 'error')
+    taskRegistry.finish(taskId, 'failed', 1)
+    return { payload: { ok: false, code: 'device-bus', message }, taskId }
   }
 }
 
@@ -327,7 +364,10 @@ export const devices = {
         exitCode: null
       }
     }
-    return toOperation(await runBridge<DeviceInfo[]>(runtime, ['list-devices']), 'Could not list iOS devices')
+    const { payload, taskId } = await withDeviceTask('List iOS devices', ['usbmux', 'list'], () =>
+      runBridge<DeviceInfo[]>(runtime, ['list-devices'])
+    )
+    return toOperation(payload, 'Could not list iOS devices', taskId)
   },
 
   async apps(udid: string): Promise<Operation<DeviceApp[]>> {
@@ -342,9 +382,15 @@ export const devices = {
         exitCode: null
       }
     }
-    return toOperation(
-      await runBridge<DeviceApp[]>(runtime, ['list-apps', '--udid', udid, '--type', 'User']),
-      'Could not list apps on this device'
+    const short = udid.slice(0, 8)
+    const { payload, taskId } = await withDeviceTask(
+      `List apps on ${short}…`,
+      ['apps', 'list', '--udid', udid, '--type', 'User'],
+      () => runBridge<DeviceApp[]>(runtime, ['list-apps', '--udid', udid, '--type', 'User'])
     )
+    if (payload.ok) {
+      taskRegistry.system(taskId, `${payload.data.length} user apps`)
+    }
+    return toOperation(payload, 'Could not list apps on this device', taskId)
   }
 }

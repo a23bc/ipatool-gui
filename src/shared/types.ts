@@ -127,6 +127,7 @@ export type TaskKind =
   | 'download'
   | 'engine'
   | 'raw'
+  | 'device'
 
 export type TaskState = 'running' | 'succeeded' | 'failed' | 'canceled'
 
