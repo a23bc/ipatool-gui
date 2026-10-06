@@ -48,6 +48,8 @@ export interface VersionMetadata {
 export interface AccountInfo {
   name: string
   email: string
+  /** DirectoryServicesID when the session reports it (used to match device ApplicationDSID). */
+  dsid?: string
 }
 
 export interface DownloadOutcome {

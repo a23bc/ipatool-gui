@@ -87,7 +87,7 @@ export async function verifySession(accountId: string): Promise<SessionCheck> {
     }
   }
 
-  accounts.markIdentity(accountId, { email: reported || expected, dsid: profile.dsid, name: info.name })
+  accounts.markIdentity(accountId, { email: reported || expected, dsid: info.dsid ?? profile.dsid, name: info.name })
   accounts.setConflict(accountId, null)
   return { status: 'ok', account: info, expected: reported || expected, message: '' }
 }
@@ -142,7 +142,7 @@ export async function afterLogin(accountId: string, info: AccountInfo): Promise<
   const profile = accounts.get(accountId)
   if (!profile) throw new AccountError('That account no longer exists', 'profile-not-found')
 
-  let dsid = profile.dsid
+  let dsid = (info.dsid ?? '').trim() || profile.dsid
   if ((await accounts.resolveCredentialStore(profile)) === 'os') {
     if (await accounts.captureSlotIdentity(profile)) {
       // The raw record carries the DirectoryServicesID, which `auth info` does
@@ -159,8 +159,8 @@ export async function afterLogin(accountId: string, info: AccountInfo): Promise<
   }
 
   accounts.markIdentity(accountId, { email: info.email, dsid, name: info.name })
-  // File-backed keyrings (Windows/Linux) keep DSID only inside the JWE; fill it
-  // so Devices can match ApplicationDSID without another sign-in.
+  // File-backed keyrings (Windows/Linux) may still lack DSID in the log event;
+  // decrypt the local record as a fallback (identity fields only).
   await accounts.learnIdentityFromKeyring(accounts.get(accountId) ?? profile)
   return accounts.snapshot()
 }

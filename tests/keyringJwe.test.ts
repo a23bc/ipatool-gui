@@ -48,4 +48,18 @@ describe('parseKeyringIdentity', () => {
     expect(parseKeyringIdentity('{"name":"x"}')).toBeNull()
     expect(parseKeyringIdentity('{"directoryServicesIdentifier":"42"}')?.dsid).toBe('42')
   })
+
+  it('never returns the Apple ID password field', () => {
+    const id = parseKeyringIdentity(
+      JSON.stringify({
+        email: 'jane@example.com',
+        directoryServicesIdentifier: '20825825307',
+        name: 'Jane',
+        password: 'super-secret',
+        passwordToken: 'tok'
+      })
+    )
+    expect(id).toEqual({ email: 'jane@example.com', dsid: '20825825307', name: 'Jane' })
+    expect(JSON.stringify(id)).not.toContain('super-secret')
+  })
 })
