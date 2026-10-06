@@ -62,6 +62,7 @@ import type { IpatoolErrorCode } from '../shared/ipatool/errors'
 import { fileExists } from './paths'
 import { readSlot, slotBridge, writeSlot } from './keyringSlot'
 import { decryptSecret, encryptSecret, settingsStore } from './settings'
+import { decryptJwe, parseKeyringIdentity } from '../shared/keyringJwe'
 
 /** Failure that the IPC layer turns into a translated, actionable message. */
 export class AccountError extends Error {
@@ -183,6 +184,7 @@ export class AccountRegistry extends EventEmitter {
       name: profile.name,
       remark: profile.remark,
       email: profile.email,
+      dsid: profile.dsid,
       signedIn: this.hasRecordedSession(profile),
       active: profile.id === this.activeId,
       credentialStore: profile.credentialStore,
@@ -227,6 +229,12 @@ export class AccountRegistry extends EventEmitter {
       this.migration = this.reconcileLegacyState(first)
       await this.migration.catch(() => null)
     }
+
+    // Backfill DirectoryServicesID from each account's keyring so Devices can
+    // match ApplicationDSID without asking the user to sign in again.
+    await Promise.all(
+      this.list().map((profile) => this.learnIdentityFromKeyring(profile).catch(() => undefined))
+    )
   }
 
   /* ---------------- mutations ---------------- */
@@ -574,6 +582,52 @@ export class AccountRegistry extends EventEmitter {
       if (!sameIdentity(known, observed)) return false
     }
     return this.saveSnapshot(profile, raw)
+  }
+
+  /**
+   * Learns email/DSID/name from the account's own keyring record.
+   *
+   * Windows/Linux `file` backend keeps a JWE encrypted with the keychain
+   * passphrase; macOS slot snapshots are already plaintext JSON. Used to fill
+   * `dsid` so Devices can match ApplicationDSID without a re-login.
+   *
+   * Security: the plaintext record includes the Apple ID password. It is only
+   * parsed for identity fields, never logged, never sent to the renderer, and
+   * the reference is dropped before return. Failures are silent - a missing
+   * passphrase must not look like a broken session to the user.
+   */
+  async learnIdentityFromKeyring(profile: AccountProfile): Promise<void> {
+    if (profile.dsid.trim() !== '') return
+
+    let raw: string | null = null
+    try {
+      const store = await this.resolveCredentialStore(profile)
+      if (store === 'os') {
+        raw = await this.readSnapshot(profile)
+      } else {
+        const text = (await readFile(this.keyringRecordPath(profile), 'utf8')).trim()
+        if (text.startsWith('{') && text.includes('directoryServicesIdentifier')) {
+          // Unencrypted diagnostic export (never written by ipatool itself).
+          raw = text
+        } else if (text !== '') {
+          const passphrase = profile.passphrase || (await this.passphraseFor(profile))
+          raw = passphrase ? decryptJwe(text, passphrase) : null
+        }
+      }
+
+      if (!raw) return
+      const identity = parseKeyringIdentity(raw)
+      // Drop the full record immediately - it may contain the Apple ID password.
+      raw = null
+      if (!identity) return
+      this.markIdentity(profile.id, {
+        email: identity.email || profile.email,
+        dsid: identity.dsid || profile.dsid,
+        name: identity.name || profile.name
+      })
+    } catch {
+      // Intentionally silent: decrypt/IO failures are not user-actionable here.
+    }
   }
 
   /* ---------------- leases ---------------- */

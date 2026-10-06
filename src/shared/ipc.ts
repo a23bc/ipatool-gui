@@ -12,6 +12,9 @@ import type {
   AccountInfo,
   AccountsSnapshot,
   AppInfoPayload,
+  DeviceApp,
+  DeviceInfo,
+  DevicesProbe,
   DownloadRequest,
   EngineRelease,
   EngineStatus,
@@ -81,6 +84,7 @@ export const IPC = Object.freeze({
   QueueImport: 'queue:import',
 
   ArtworkGet: 'artwork:get',
+  ArtworkGetByBundle: 'artwork:get-by-bundle',
   ArtworkClearCache: 'artwork:clear-cache',
 
   FsPickDirectory: 'fs:pick-directory',
@@ -104,7 +108,12 @@ export const IPC = Object.freeze({
   WindowToggleMaximize: 'window:toggle-maximize',
   WindowClose: 'window:close',
   /** Dim/undim the OS caption buttons while a modal scrim is showing. */
-  WindowSetChromeDimmed: 'window:set-chrome-dimmed'
+  WindowSetChromeDimmed: 'window:set-chrome-dimmed',
+
+  DevicesProbe: 'devices:probe',
+  DevicesInstall: 'devices:install',
+  DevicesList: 'devices:list',
+  DevicesApps: 'devices:apps'
   // Frozen at runtime too, not just `as const` at compile time: every process
   // shares this live object, so a compromised renderer must not be able to
   // re-point an innocuous channel name at a sensitive handler.
@@ -253,6 +262,7 @@ export interface RendererApi {
   /* --- artwork ---------------------------------------------------- */
   /** Returns a data URL, or null when unavailable. Cached on disk by main. */
   getArtwork(appId: number, country?: string): Promise<string | null>
+  getArtworkByBundle(bundleId: string, country?: string): Promise<string | null>
   clearArtworkCache(): Promise<number>
 
   /* --- filesystem & shell ----------------------------------------- */
@@ -281,6 +291,12 @@ export interface RendererApi {
   close(): void
   /** Dim OS caption buttons while a modal scrim is covering the window. */
   setChromeDimmed(dimmed: boolean): void
+
+  /* --- devices (iOS) ----------------------------------------------- */
+  devicesProbe(): Promise<DevicesProbe>
+  devicesInstall(): Promise<DevicesProbe>
+  devicesList(): Promise<Operation<DeviceInfo[]>>
+  devicesApps(udid: string): Promise<Operation<DeviceApp[]>>
 }
 
 declare global {

@@ -51,6 +51,10 @@ export class ArtworkCache {
     return `${appId}_${country.toLowerCase()}`
   }
 
+  private bundleKey(bundleId: string, country: string): string {
+    return `bundle_${bundleId.toLowerCase()}_${country.toLowerCase()}`
+  }
+
   private diskPath(key: string): string {
     return path.join(this.cacheDir(), `${key}.img`)
   }
@@ -72,7 +76,21 @@ export class ArtworkCache {
 
     const cc = (country ?? settingsStore.getInternal().artworkCountry ?? 'us').toLowerCase()
     const cacheKey = this.key(appId, cc)
+    return this.resolve(cacheKey, `id=${encodeURIComponent(String(appId))}`, cc)
+  }
 
+  /** iTunes lookup by bundle id (device list has no App Store id). */
+  async getByBundleId(bundleId: string, country?: string): Promise<string | null> {
+    if (!settingsStore.getInternal().artworkEnabled) return null
+    const bid = bundleId.trim()
+    if (bid === '') return null
+
+    const cc = (country ?? settingsStore.getInternal().artworkCountry ?? 'us').toLowerCase()
+    const cacheKey = this.bundleKey(bid, cc)
+    return this.resolve(cacheKey, `bundleId=${encodeURIComponent(bid)}`, cc)
+  }
+
+  private async resolve(cacheKey: string, query: string, country: string): Promise<string | null> {
     if (this.memory.has(cacheKey)) return this.memory.get(cacheKey) ?? null
 
     // Negative results are cached for a while so a missing icon is not retried
@@ -83,14 +101,14 @@ export class ArtworkCache {
     const pending = this.inflight.get(cacheKey)
     if (pending) return pending
 
-    const task = this.load(cacheKey, appId, cc).finally(() => {
+    const task = this.load(cacheKey, query, country).finally(() => {
       this.inflight.delete(cacheKey)
     })
     this.inflight.set(cacheKey, task)
     return task
   }
 
-  private async load(cacheKey: string, appId: number, country: string): Promise<string | null> {
+  private async load(cacheKey: string, query: string, country: string): Promise<string | null> {
     const disk = this.diskPath(cacheKey)
     try {
       const cached = await readFile(disk)
@@ -103,7 +121,7 @@ export class ArtworkCache {
 
     await this.acquire()
     try {
-      const url = `https://itunes.apple.com/lookup?id=${encodeURIComponent(String(appId))}&country=${encodeURIComponent(country)}`
+      const url = `https://itunes.apple.com/lookup?${query}&country=${encodeURIComponent(country)}`
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS)
       timer.unref?.()

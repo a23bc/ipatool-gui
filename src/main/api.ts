@@ -188,6 +188,19 @@ function secretList(passphrase: string, extra: string[] = []): string[] {
   return Array.from(new Set(secrets))
 }
 
+/**
+ * Identity fields ipatool stamps on account/login success events.
+ * `directoryServicesIdentifier` is what Devices uses to match ApplicationDSID.
+ */
+function readAccountInfo(event: ZerologEvent): AccountInfo {
+  const dsid = readString(event, 'directoryServicesIdentifier') || readString(event, 'directoryServicesId')
+  return {
+    name: readString(event, 'name'),
+    email: readString(event, 'email'),
+    ...(dsid !== '' ? { dsid } : {})
+  }
+}
+
 export class IpatoolApi {
   /** Runs one ipatool invocation end-to-end and returns its parsed output. */
   private async execute(options: ExecuteOptions): Promise<ExecuteResult> {
@@ -370,7 +383,7 @@ export class IpatoolApi {
     const success = outcome.successEvent
     if (success) {
       const account: AccountInfo = {
-        name: readString(success, 'name'),
+        ...readAccountInfo(success),
         email: readString(success, 'email') || email
       }
       return { status: 'ok', account, message: '', taskId }
@@ -407,7 +420,7 @@ export class IpatoolApi {
       timeoutMs: 60_000
     })
     const success = this.assertSuccess(result, 'Could not read account info')
-    return { name: readString(success, 'name'), email: readString(success, 'email') }
+    return readAccountInfo(success)
   }
 
   /** Returns null instead of throwing when the user is simply not signed in. */

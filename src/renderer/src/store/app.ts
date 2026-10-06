@@ -146,6 +146,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     locale: 'system',
     artworkEnabled: true,
     artworkCountry: 'us',
+    deviceAccountLabel: 'email',
     maxLogLines: 2000,
     resumeQueueOnLaunch: true,
     notifyOnComplete: true,

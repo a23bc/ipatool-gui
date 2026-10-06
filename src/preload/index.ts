@@ -150,6 +150,8 @@ const api: RendererApi = {
 
   getArtwork: (appId: number, country?: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC.ArtworkGet, appId, country),
+  getArtworkByBundle: (bundleId: string, country?: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.ArtworkGetByBundle, bundleId, country),
   clearArtworkCache: (): Promise<number> => ipcRenderer.invoke(IPC.ArtworkClearCache),
 
   pickDirectory: (title?: string, defaultPath?: string): Promise<string | null> =>
@@ -183,7 +185,11 @@ const api: RendererApi = {
   },
   setChromeDimmed: (dimmed: boolean): void => {
     ipcRenderer.send(IPC.WindowSetChromeDimmed, dimmed)
-  }
+  },
+  devicesProbe: () => ipcRenderer.invoke(IPC.DevicesProbe),
+  devicesInstall: () => ipcRenderer.invoke(IPC.DevicesInstall),
+  devicesList: () => ipcRenderer.invoke(IPC.DevicesList),
+  devicesApps: (udid: string) => ipcRenderer.invoke(IPC.DevicesApps, udid)
 }
 
 // Expose as a frozen object so page scripts cannot monkey-patch the bridge.

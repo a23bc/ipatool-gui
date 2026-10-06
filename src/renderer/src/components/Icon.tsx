@@ -51,6 +51,7 @@ export type IconName =
   | 'history'
   | 'checkCircle'
   | 'xCircle'
+  | 'phone'
 
 const PATHS: Record<IconName, ReactNode> = {
   search: (
@@ -129,6 +130,12 @@ const PATHS: Record<IconName, ReactNode> = {
   chevronUp: <path d="m5 14.5 7-7 7 7" />,
   folder: (
     <path d="M3 7.5A2 2 0 0 1 5 5.5h3.6l2 2.2H19a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  ),
+  phone: (
+    <>
+      <rect x="7" y="2.5" width="10" height="19" rx="2.2" />
+      <path d="M11 18.2h2" />
+    </>
   ),
   copy: (
     <>

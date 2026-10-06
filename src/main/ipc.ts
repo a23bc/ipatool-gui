@@ -34,6 +34,7 @@ import { AccountError, accounts, assertAccountId } from './accounts'
 import { ApiError, ipatoolApi } from './api'
 import { artworkCache } from './artwork'
 import { downloadQueue } from './queue'
+import { devices } from './devices'
 import { engineManager, EngineError } from './engine'
 import { settingsStore } from './settings'
 import { afterLogin, refreshAll, switchTo, verifySession } from './session'
@@ -402,6 +403,9 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.ArtworkGet, (_e, appId: number, country?: string) =>
     artworkCache.get(Number(appId), country).catch(() => null)
   )
+  ipcMain.handle(IPC.ArtworkGetByBundle, (_e, bundleId: string, country?: string) =>
+    artworkCache.getByBundleId(String(bundleId ?? ''), country).catch(() => null)
+  )
   ipcMain.handle(IPC.ArtworkClearCache, () => artworkCache.clear())
 
   /* ---------------------------------------------------------------- *
@@ -583,6 +587,15 @@ export function registerIpc(): void {
   ipcMain.on(IPC.WindowSetChromeDimmed, (_e, dimmed: boolean) => {
     syncTitleBarOverlay(mainWindow(), dimmed === true)
   })
+
+  /* ---------------------------------------------------------------- *
+   * devices (iOS)
+   * ---------------------------------------------------------------- */
+
+  ipcMain.handle(IPC.DevicesProbe, () => devices.probe())
+  ipcMain.handle(IPC.DevicesInstall, () => devices.install())
+  ipcMain.handle(IPC.DevicesList, () => devices.list())
+  ipcMain.handle(IPC.DevicesApps, (_e, udid: string) => devices.apps(String(udid ?? '')))
 }
 
 /** Applies side effects whenever settings change. */

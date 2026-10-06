@@ -48,6 +48,8 @@ export interface VersionMetadata {
 export interface AccountInfo {
   name: string
   email: string
+  /** DirectoryServicesID when the session reports it (used to match device ApplicationDSID). */
+  dsid?: string
 }
 
 export interface DownloadOutcome {
@@ -127,6 +129,7 @@ export type TaskKind =
   | 'download'
   | 'engine'
   | 'raw'
+  | 'device'
 
 export type TaskState = 'running' | 'succeeded' | 'failed' | 'canceled'
 
@@ -274,6 +277,8 @@ export interface AccountView {
   name: string
   remark: string
   email: string
+  /** DirectoryServicesID - used to match device install-account DSIDs. */
+  dsid: string
   /** True when the account's own session answered an identity probe. */
   signedIn: boolean
   active: boolean
@@ -353,6 +358,8 @@ export interface Settings {
   /** Country used only for artwork lookup; ipatool itself takes the storefront
    *  from the signed-in account. */
   artworkCountry: string
+  /** Which account field the Devices list shows for a matched install DSID. */
+  deviceAccountLabel: 'email' | 'name' | 'remark'
   maxLogLines: number
   resumeQueueOnLaunch: boolean
   notifyOnComplete: boolean
@@ -397,6 +404,48 @@ export interface AppInfoPayload {
 }
 
 export type NodePlatform = 'darwin' | 'linux' | 'win32'
+
+/* ------------------------------------------------------------------ *
+ * Devices (iOS over usbmux / pymobiledevice3)
+ * ------------------------------------------------------------------ */
+
+export interface DeviceInfo {
+  udid: string
+  name: string | null
+  /** e.g. iPhone9,2 */
+  productType: string | null
+  /** e.g. 15.8.8 */
+  productVersion: string | null
+  buildVersion: string | null
+  connection: string
+  deviceClass: string | null
+}
+
+export interface DeviceApp {
+  bundleId: string
+  name: string
+  version: string
+  build: string
+  applicationType: string
+  /**
+   * Apple ID DSID that originally installed this app on the device.
+   * Not the same as the ipatool login session - only a matching hint.
+   */
+  applicationDsid: number | string | null
+  signerIdentity: string | null
+  isAppClip: boolean
+}
+
+export interface DevicesProbe {
+  ok: boolean
+  /** Where pymobiledevice3 came from when ok. */
+  source?: 'system' | 'managed' | 'missing'
+  executable: string | null
+  version: string | null
+  message?: string
+  /** True when the app can create a managed venv and install it. */
+  canInstall?: boolean
+}
 
 export interface OperationResult<T> {
   ok: true

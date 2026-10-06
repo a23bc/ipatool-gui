@@ -19,6 +19,7 @@ import { ActivityView } from '@renderer/pages/ActivityView'
 import { AuthModal } from '@renderer/pages/AuthModal'
 import { ConsoleView } from '@renderer/pages/ConsoleView'
 import { DownloadsView } from '@renderer/pages/DownloadsView'
+import { DevicesView } from '@renderer/pages/DevicesView'
 import { PurchasesView } from '@renderer/pages/PurchasesView'
 import { SearchView } from '@renderer/pages/SearchView'
 import { SettingsView } from '@renderer/pages/SettingsView'
@@ -28,8 +29,9 @@ const VIEW_SHORTCUTS: Record<string, View> = {
   '1': 'search',
   '2': 'purchases',
   '3': 'downloads',
-  '4': 'activity',
-  '5': 'console'
+  '4': 'devices',
+  '5': 'activity',
+  '6': 'console'
 }
 
 function CurrentView({ view }: { view: View }): ReactNode {
@@ -40,6 +42,8 @@ function CurrentView({ view }: { view: View }): ReactNode {
       return <PurchasesView />
     case 'downloads':
       return <DownloadsView />
+    case 'devices':
+      return <DevicesView />
     case 'activity':
       return <ActivityView />
     case 'console':

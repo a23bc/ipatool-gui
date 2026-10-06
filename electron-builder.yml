@@ -28,9 +28,13 @@ files:
   - "!**/*.map"
 
 # Toast/notification icon (Windows shows AUMID without a real image otherwise).
+# python/ is real files on disk - the bridge script cannot live inside asar
+# because CPython opens it by path.
 extraResources:
   - from: build/icon.png
     to: icon.png
+  - from: python/devices
+    to: python/devices
 
 asar: true
 asarUnpack: []
