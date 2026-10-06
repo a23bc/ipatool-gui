@@ -62,6 +62,7 @@ import type { IpatoolErrorCode } from '../shared/ipatool/errors'
 import { fileExists } from './paths'
 import { readSlot, slotBridge, writeSlot } from './keyringSlot'
 import { decryptSecret, encryptSecret, settingsStore } from './settings'
+import { decryptJwe, parseKeyringIdentity } from '../shared/keyringJwe'
 
 /** Failure that the IPC layer turns into a translated, actionable message. */
 export class AccountError extends Error {
@@ -228,6 +229,12 @@ export class AccountRegistry extends EventEmitter {
       this.migration = this.reconcileLegacyState(first)
       await this.migration.catch(() => null)
     }
+
+    // Backfill DirectoryServicesID from each account's keyring so Devices can
+    // match ApplicationDSID without asking the user to sign in again.
+    await Promise.all(
+      this.list().map((profile) => this.learnIdentityFromKeyring(profile).catch(() => undefined))
+    )
   }
 
   /* ---------------- mutations ---------------- */
@@ -575,6 +582,44 @@ export class AccountRegistry extends EventEmitter {
       if (!sameIdentity(known, observed)) return false
     }
     return this.saveSnapshot(profile, raw)
+  }
+
+  /**
+   * Learns email/DSID/name from the account's own keyring record.
+   *
+   * Windows/Linux `file` backend keeps a JWE encrypted with the keychain
+   * passphrase; macOS slot snapshots are already plaintext JSON. Used to fill
+   * `dsid` so Devices can match ApplicationDSID without a re-login.
+   */
+  async learnIdentityFromKeyring(profile: AccountProfile): Promise<void> {
+    if (profile.dsid.trim() !== '') return
+
+    let raw: string | null = null
+    const store = await this.resolveCredentialStore(profile)
+    if (store === 'os') {
+      raw = await this.readSnapshot(profile)
+    } else {
+      try {
+        const text = (await readFile(this.keyringRecordPath(profile), 'utf8')).trim()
+        if (text.startsWith('{')) {
+          raw = text
+        } else {
+          const passphrase = await this.passphraseFor(profile)
+          raw = passphrase ? decryptJwe(text, passphrase) : null
+        }
+      } catch {
+        raw = null
+      }
+    }
+    if (!raw) return
+
+    const identity = parseKeyringIdentity(raw)
+    if (!identity) return
+    this.markIdentity(profile.id, {
+      email: identity.email || profile.email,
+      dsid: identity.dsid || profile.dsid,
+      name: identity.name || profile.name
+    })
   }
 
   /* ---------------- leases ---------------- */

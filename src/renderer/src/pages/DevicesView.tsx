@@ -46,7 +46,9 @@ function AppRow({ app }: { app: DeviceApp }): ReactNode {
   }
 
   const search = (): void => {
-    setTerm(app.bundleId)
+    // ipatool search is storefront text search — bundle ids rarely hit.
+    // Use the display name (falls back to bundle id only if unnamed).
+    setTerm(app.name || app.bundleId)
     setView('search')
     void runSearch()
     toast({ kind: 'info', message: t('devices.searchStarted', { name: app.name }), duration: 2000 })

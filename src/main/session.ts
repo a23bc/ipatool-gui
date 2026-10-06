@@ -159,6 +159,9 @@ export async function afterLogin(accountId: string, info: AccountInfo): Promise<
   }
 
   accounts.markIdentity(accountId, { email: info.email, dsid, name: info.name })
+  // File-backed keyrings (Windows/Linux) keep DSID only inside the JWE; fill it
+  // so Devices can match ApplicationDSID without another sign-in.
+  await accounts.learnIdentityFromKeyring(accounts.get(accountId) ?? profile)
   return accounts.snapshot()
 }
 
