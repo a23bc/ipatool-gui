@@ -23,6 +23,8 @@ export interface DevicesState {
   onlyUser: boolean
 
   init: () => Promise<void>
+  installRuntime: () => Promise<void>
+  installing: boolean
   refreshDevices: () => Promise<void>
   select: (udid: string | null) => void
   refreshApps: () => Promise<void>
@@ -37,6 +39,7 @@ export const useDevicesStore = create<DevicesState>()((set, get) => ({
   apps: [],
   appsLoading: false,
   listLoading: false,
+  installing: false,
   error: null,
   filter: '',
   onlyUser: true,
@@ -46,6 +49,18 @@ export const useDevicesStore = create<DevicesState>()((set, get) => ({
     set({ probe })
     if (!probe.ok) return
     await get().refreshDevices()
+  },
+
+  async installRuntime() {
+    set({ installing: true, error: null })
+    try {
+      const probe = await window.api.devicesInstall()
+      set({ probe, installing: false })
+      if (probe.ok) await get().refreshDevices()
+      else set({ error: probe.message || null })
+    } catch (error) {
+      set({ installing: false, error: String(error) })
+    }
   },
 
   async refreshDevices() {

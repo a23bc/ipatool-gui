@@ -110,6 +110,7 @@ export const IPC = Object.freeze({
   WindowSetChromeDimmed: 'window:set-chrome-dimmed',
 
   DevicesProbe: 'devices:probe',
+  DevicesInstall: 'devices:install',
   DevicesList: 'devices:list',
   DevicesApps: 'devices:apps'
   // Frozen at runtime too, not just `as const` at compile time: every process
@@ -291,6 +292,7 @@ export interface RendererApi {
 
   /* --- devices (iOS) ----------------------------------------------- */
   devicesProbe(): Promise<DevicesProbe>
+  devicesInstall(): Promise<DevicesProbe>
   devicesList(): Promise<Operation<DeviceInfo[]>>
   devicesApps(udid: string): Promise<Operation<DeviceApp[]>>
 }

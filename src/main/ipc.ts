@@ -590,6 +590,7 @@ export function registerIpc(): void {
    * ---------------------------------------------------------------- */
 
   ipcMain.handle(IPC.DevicesProbe, () => devices.probe())
+  ipcMain.handle(IPC.DevicesInstall, () => devices.install())
   ipcMain.handle(IPC.DevicesList, () => devices.list())
   ipcMain.handle(IPC.DevicesApps, (_e, udid: string) => devices.apps(String(udid ?? '')))
 }

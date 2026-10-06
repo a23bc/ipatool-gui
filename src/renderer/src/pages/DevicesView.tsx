@@ -101,6 +101,8 @@ export function DevicesView(): ReactNode {
   const error = useDevicesStore((state) => state.error)
   const filter = useDevicesStore((state) => state.filter)
   const init = useDevicesStore((state) => state.init)
+  const installRuntime = useDevicesStore((state) => state.installRuntime)
+  const installing = useDevicesStore((state) => state.installing)
   const refreshDevices = useDevicesStore((state) => state.refreshDevices)
   const refreshApps = useDevicesStore((state) => state.refreshApps)
   const select = useDevicesStore((state) => state.select)
@@ -122,7 +124,19 @@ export function DevicesView(): ReactNode {
           icon="phone"
           title={t('devices.pythonMissing')}
           body={probe.message || t('devices.pythonMissingHelp')}
-        />
+        >
+          {probe.canInstall !== false ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={installing}
+              onClick={() => void installRuntime()}
+            >
+              {installing ? <Spinner size={13} /> : <Icon name="download" size={13} />}
+              {installing ? t('devices.installing') : t('devices.install')}
+            </button>
+          ) : null}
+        </EmptyState>
       </div>
     )
   }

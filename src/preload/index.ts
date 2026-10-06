@@ -185,6 +185,7 @@ const api: RendererApi = {
     ipcRenderer.send(IPC.WindowSetChromeDimmed, dimmed)
   },
   devicesProbe: () => ipcRenderer.invoke(IPC.DevicesProbe),
+  devicesInstall: () => ipcRenderer.invoke(IPC.DevicesInstall),
   devicesList: () => ipcRenderer.invoke(IPC.DevicesList),
   devicesApps: (udid: string) => ipcRenderer.invoke(IPC.DevicesApps, udid)
 }

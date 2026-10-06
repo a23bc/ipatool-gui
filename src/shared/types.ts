@@ -433,9 +433,13 @@ export interface DeviceApp {
 
 export interface DevicesProbe {
   ok: boolean
+  /** Where pymobiledevice3 came from when ok. */
+  source?: 'system' | 'managed' | 'missing'
   executable: string | null
   version: string | null
   message?: string
+  /** True when the app can create a managed venv and install it. */
+  canInstall?: boolean
 }
 
 export interface OperationResult<T> {
