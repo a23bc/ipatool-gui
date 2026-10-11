@@ -240,14 +240,33 @@ export function SettingsView(): ReactNode {
             </div>
           </Field>
 
-          <Field label={t('settings.engine.path')} hint={t('settings.engine.pathHelp')}>
-            <TextInput
-              value={settings.ipatoolPath}
-              onChange={(value) => void update({ ipatoolPath: value })}
-              placeholder="/opt/homebrew/bin/ipatool"
-              mono
-              className="flex-1"
-            />
+          <Field label={t('settings.engine.path')} hint={t('settings.engine.pathHelp')} stacked>
+            <div className="flex items-center gap-2">
+              <TextInput
+                value={settings.ipatoolPath}
+                onChange={(value) => void update({ ipatoolPath: value })}
+                placeholder="/opt/homebrew/bin/ipatool"
+                mono
+                className="flex-1"
+              />
+              <button
+                type="button"
+                className="btn h-[30px]"
+                onClick={() => {
+                  void window.api
+                    .pickFile(t('settings.engine.path'), [
+                      { name: 'ipatool', extensions: appInfo?.platform === 'win32' ? ['exe'] : ['*'] }
+                    ])
+                    .then((picked) => {
+                      if (picked) void update({ ipatoolPath: picked })
+                    })
+                    .catch((error: unknown) => toast({ kind: 'error', message: String(error) }))
+                }}
+              >
+                <Icon name="folder" size={13} />
+                {t('common.browse')}
+              </button>
+            </div>
           </Field>
 
           <Toggle
@@ -257,7 +276,7 @@ export function SettingsView(): ReactNode {
             hint={t('settings.engine.autoInstallHelp')}
           />
 
-          <Field label={t('settings.engine.mirror')} hint={t('settings.engine.mirrorHelp')}>
+          <Field label={t('settings.engine.mirror')} hint={t('settings.engine.mirrorHelp')} stacked>
             <TextInput
               value={settings.githubMirror}
               onChange={(value) => void update({ githubMirror: value })}

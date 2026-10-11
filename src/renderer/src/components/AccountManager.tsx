@@ -255,7 +255,10 @@ export function AccountManager(): ReactNode {
             className="btn"
             disabled={busy}
             onClick={() => {
-              void run(() => refreshAccounts())
+              void run(async () => {
+                await refreshAccounts()
+                toast({ kind: 'success', message: t('accounts.verified') })
+              })
             }}
           >
             {busy ? <Spinner size={13} /> : <Icon name="refresh" size={13} />}
