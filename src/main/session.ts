@@ -118,6 +118,9 @@ export async function switchTo(accountId: string): Promise<{ snapshot: AccountsS
  */
 export async function refreshAll(onlyUnknown = false): Promise<AccountsSnapshot> {
   for (const profile of accounts.list()) {
+    // Never-used slots are hidden from the UI and have nothing to probe -
+    // running `auth info` on them only produces keyring errors in the log.
+    if (!accounts.hasRecordedSession(profile) && profile.remark.trim() === '') continue
     if (onlyUnknown && accounts.hasRecordedSession(profile)) continue
     try {
       await verifySession(profile.id)

@@ -192,7 +192,12 @@ export function Choice<T extends string | number>({
   onChange: (value: T) => void
 }): ReactNode {
   return (
-    <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: 'var(--panel-2)' }}>
+    // `self-start` keeps the pill bar hug its labels when the Field stacks
+    // children full-width (otherwise the track stretches across the card).
+    <div
+      className="flex w-fit items-center gap-1 rounded-lg p-0.5"
+      style={{ background: 'var(--panel-2)', alignSelf: 'flex-start' }}
+    >
       {options.map((option) => {
         const active = option.value === value
         return (

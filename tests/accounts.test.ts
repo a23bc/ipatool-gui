@@ -194,16 +194,16 @@ describe('naming', () => {
     expect(accountDisplayName(profile({ name: '', email: '', remark: '' }))).toBe('Account')
   })
 
-  it('orders accounts by most recent use', () => {
-    const a = profile({ id: 'a1bcdefg', lastUsedAt: 1 })
-    const b = profile({ id: 'a2hijklm', lastUsedAt: 9 })
+  it('orders accounts by creation time, oldest first', () => {
+    const a = profile({ id: 'a1bcdefg', lastUsedAt: 1, createdAt: 100 })
+    const b = profile({ id: 'a2hijklm', lastUsedAt: 9, createdAt: 50 })
     expect(sortAccounts([a, b]).map((entry) => entry.id)).toEqual(['a2hijklm', 'a1bcdefg'])
   })
 
-  it('pins the active account first even when another was used more recently', () => {
-    const active = profile({ id: 'a1bcdefg', lastUsedAt: 1 })
-    const other = profile({ id: 'a2hijklm', lastUsedAt: 9 })
-    expect(sortAccounts([other, active], 'a1bcdefg').map((entry) => entry.id)).toEqual([
+  it('does not reshuffle when another account is used or becomes active', () => {
+    const first = profile({ id: 'a1bcdefg', createdAt: 1, lastUsedAt: 1 })
+    const second = profile({ id: 'a2hijklm', createdAt: 2, lastUsedAt: 99 })
+    expect(sortAccounts([second, first]).map((entry) => entry.id)).toEqual([
       'a1bcdefg',
       'a2hijklm'
     ])

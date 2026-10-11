@@ -172,6 +172,7 @@ export function AccountManager(): ReactNode {
   const updateAccount = useAppStore((state) => state.updateAccount)
   const removeAccount = useAppStore((state) => state.removeAccount)
   const getAccounts = useAppStore((state) => state.getAccounts)
+  const refreshAccounts = useAppStore((state) => state.refreshAccounts)
 
   const open = useUiStore((state) => state.accountsOpen)
   const setOpen = useUiStore((state) => state.setAccountsOpen)
@@ -249,8 +250,18 @@ export function AccountManager(): ReactNode {
       width={560}
       footer={
         <>
-          <button type="button" className="btn" onClick={() => void getAccounts()}>
-            <Icon name="refresh" size={13} />
+          <button
+            type="button"
+            className="btn"
+            disabled={busy}
+            onClick={() => {
+              void run(async () => {
+                await refreshAccounts()
+                toast({ kind: 'success', message: t('accounts.verified') })
+              })
+            }}
+          >
+            {busy ? <Spinner size={13} /> : <Icon name="refresh" size={13} />}
             {t('accounts.refreshAll')}
           </button>
           <button type="button" className="btn btn-primary" onClick={onAdd} disabled={busy}>

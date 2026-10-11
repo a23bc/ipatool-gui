@@ -111,6 +111,16 @@ export interface EngineRelease {
   hasAssetForThisPlatform: boolean
 }
 
+/** Result of comparing the running ipatool against published releases. */
+export interface EngineUpdateCheck {
+  /** Installed version ('' when unknown / not ready). */
+  current: string
+  /** Newest stable release that has a build for this platform, if any. */
+  latest: string | null
+  hasUpdate: boolean
+  error: string | null
+}
+
 /* ------------------------------------------------------------------ *
  * Tasks & logs
  * ------------------------------------------------------------------ */

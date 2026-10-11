@@ -42,6 +42,10 @@ export interface AppState {
   appInfo: AppInfoPayload | null
   settings: Settings
   engine: EngineStatus
+  /** Newest ipatool release vs installed, when the main process checked. */
+  engineUpdate: { latest: string | null; hasUpdate: boolean } | null
+  /** Account to restore if add-account sign-in is cancelled. */
+  pendingAddRestoreId: string | null
   /** Every registered account, plus the platform's credential-slot capability. */
   accounts: AccountsSnapshot
   /** Identity of the *active* account, or null when it has no usable session. */
@@ -63,7 +67,11 @@ export interface AppState {
   setAccount: (account: AccountInfo | null) => void
 
   getAccounts: () => Promise<AccountsSnapshot>
+  /** Re-probes every account's session (not just the list snapshot). */
+  refreshAccounts: () => Promise<void>
   addAccount: (remark?: string) => Promise<string | null>
+  /** If add-account was cancelled before sign-in, switch back to the previous account. */
+  restoreAccountAfterAuthClose: () => Promise<void>
   activateAccount: (id: string) => Promise<AccountSwitchResult>
   updateAccount: (id: string, remark: string) => Promise<void>
   removeAccount: (id: string) => Promise<boolean>
@@ -153,6 +161,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
     lastEmail: ''
   },
   engine: IDLE_ENGINE,
+  engineUpdate: null,
+  pendingAddRestoreId: null,
   accounts: EMPTY_ACCOUNTS,
   account: null,
   accountChecked: false,
@@ -199,6 +209,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
     // this store from the bridge (HMR / tests).
     disposers.push(api.on('engine:status', (next) => set({ engine: next })))
     disposers.push(api.on('engine:progress', (next) => set({ engine: next })))
+    disposers.push(
+      api.on('engine:update', (next) => {
+        set({ engineUpdate: { latest: next.latest, hasUpdate: next.hasUpdate } })
+        if (next.hasUpdate && next.latest) {
+          useUiStore.getState().toast({
+            kind: 'info',
+            message: get().t('engine.updateAvailable', { version: next.latest }),
+            actionLabel: get().t('nav.settings'),
+            onAction: () => useUiStore.getState().setView('settings')
+          })
+        }
+      })
+    )
 
     // The account list is the single source of truth for "who are we signed in
     // as": the active pointer, every session's state and the platform's
@@ -278,12 +301,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }
     const engine = await window.api.installEngine(version, force === true)
     set({ engine })
+    // Clear or refresh the "newer ipatool" banner so a successful update
+    // does not keep nagging.
+    void window.api
+      .checkEngineUpdate()
+      .then((check) => set({ engineUpdate: { latest: check.latest, hasUpdate: check.hasUpdate } }))
+      .catch(() => set({ engineUpdate: null }))
     return engine
   },
 
   async uninstallEngine() {
     const engine = await window.api.uninstallEngine()
-    set({ engine })
+    set({ engine, engineUpdate: null })
     return engine
   },
 
@@ -321,6 +350,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
     return accounts
   },
 
+  async refreshAccounts() {
+    const accounts = await window.api.refreshAccounts()
+    set({ accounts, account: activeIdentity(accounts) })
+  },
+
   /**
    * Creates an empty account and makes it active; returns its id for the
    * sign-in flow, or null when creating it failed.
@@ -332,12 +366,29 @@ export const useAppStore = create<AppState>()((set, get) => ({
    */
   async addAccount(remark) {
     try {
+      // Remember who was active so a cancelled sign-in can jump back.
+      set({ pendingAddRestoreId: get().accounts.activeId || null })
       const accounts = await window.api.addAccount(remark)
       set({ accounts, account: activeIdentity(accounts) })
       return accounts.activeId || null
     } catch (error) {
+      set({ pendingAddRestoreId: null })
       useUiStore.getState().toast({ kind: 'error', message: String(error) })
       return null
+    }
+  },
+
+  async restoreAccountAfterAuthClose() {
+    const restoreTo = get().pendingAddRestoreId
+    if (!restoreTo) return
+    set({ pendingAddRestoreId: null })
+    const snap = get().accounts
+    const activeVisible = snap.accounts.find((a) => a.id === snap.activeId)
+    // Sign-in filled the new slot - stay there.
+    if (activeVisible && (activeVisible.email !== '' || activeVisible.signedIn)) return
+    // Still on an unused hidden slot (or no session): go back.
+    if (snap.activeId !== restoreTo) {
+      await get().activateAccount(restoreTo)
     }
   },
 

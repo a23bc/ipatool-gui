@@ -357,6 +357,9 @@ export const en = {
   'settings.engine.releasesLoading': 'Loading releases…',
   'settings.engine.uninstall': 'Remove managed copy',
   'settings.engine.uninstallHelp': 'Only deletes the copy this app downloaded.',
+  'settings.engine.updateTo': 'ipatool {version} is available',
+  'settings.engine.updateNow': 'Update to {version}',
+  'settings.engine.updateHelp': 'Replaces the managed copy; a system-wide ipatool is left alone.',
   'settings.engine.mirror': 'GitHub download mirror',
   'settings.engine.mirrorHelp':
     'Prefix prepended to github.com URLs (release metadata and asset downloads), for proxies such as https://gh-proxy.com. The .sha256sum checksum is ALWAYS fetched from github.com directly, so a mirror can never vouch for its own payload. Leave empty for a direct connection.',
@@ -373,7 +376,7 @@ export const en = {
   'settings.account.passphraseWarning':
     'If you already use ipatool in a terminal, use the same passphrase here or the stored credentials cannot be decrypted.',
   'settings.accounts.help': 'Each account gets its own session directory, so signing in to one never signs the others out.',
-  'settings.account.isolateHome': 'Isolate each account\u2019s home directory',
+  'settings.account.isolateHome': 'Isolate each account\u2019s home directory (recommended)',
   'settings.account.isolateHomeHelp':
     'ipatool prefers ~/.ipatool whenever it exists, which would make every account share one session. Running it with a per-account home directory removes that fallback. Turn this off only if it interferes with a future ipatool build - the app then moves ~/.ipatool aside instead.',
   'settings.account.verbose': 'Verbose ipatool logs',
@@ -466,6 +469,7 @@ export const en = {
   'engine.reinstall.title': 'ipatool is already installed',
   'engine.reinstall.body': 'ipatool {version} is already on this machine. Download and install it again?',
   'engine.reinstall.ok': 'Download again',
+  'engine.updateAvailable': 'ipatool {version} is available',
   'toast.signedOut': 'Signed out',
   'toast.imported': 'Imported {n} entries',
   'toast.importEmpty': 'Nothing recognisable in that file',

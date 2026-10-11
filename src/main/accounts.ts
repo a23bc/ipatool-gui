@@ -196,7 +196,7 @@ export class AccountRegistry extends EventEmitter {
   async snapshot(): Promise<AccountsSnapshot> {
     const bridge = await slotBridge()
     const activeId = this.activeId
-    const profiles = sortAccounts(this.list(), activeId)
+    const profiles = sortAccounts(this.list())
     const shared = profiles.some((profile) => this.effectiveStore(profile) === 'os')
     return {
       // Unused slots are not listed: the switcher must not offer a nameless

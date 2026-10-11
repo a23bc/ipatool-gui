@@ -348,6 +348,9 @@ export const zh: Dict = {
   'settings.engine.releasesLoading': '正在加载版本列表…',
   'settings.engine.uninstall': '删除托管副本',
   'settings.engine.uninstallHelp': '只删除本程序自己下载的那一份。',
+  'settings.engine.updateTo': '发现新版 ipatool {version}',
+  'settings.engine.updateNow': '更新到 {version}',
+  'settings.engine.updateHelp': '替换本程序管理的副本；系统自带的 ipatool 不会被改动。',
   'settings.engine.mirror': 'GitHub 下载镜像',
   'settings.engine.mirrorHelp':
     '会作为前缀拼到 github.com 地址前（版本元数据与资源下载走它），例如 https://gh-proxy.com。.sha256sum 校验文件始终直连 github.com 获取，镜像永远无法为自己的产物背书。留空表示直连。',
@@ -364,7 +367,7 @@ export const zh: Dict = {
   'settings.account.passphraseWarning':
     '如果你也在终端里用 ipatool，这里要填同一个口令，否则已保存的凭据无法解密。',
   'settings.accounts.help': '每个账户有自己的会话目录，登录其中一个不会把其他账户挤下线。',
-  'settings.account.isolateHome': '为每个账户隔离 HOME 目录',
+  'settings.account.isolateHome': '为每个账户隔离 HOME 目录（推荐）',
   'settings.account.isolateHomeHelp':
     '只要 ~/.ipatool 存在，ipatool 就会优先使用它，从而让所有账户共用同一份会话。让每次调用跑在各自的 HOME 目录下即可消除这条回退路径。只有在它与未来的 ipatool 版本冲突时才需要关闭——关闭后本程序会改为把 ~/.ipatool 挪走。',
   'settings.account.verbose': 'ipatool 详细日志',
@@ -454,6 +457,7 @@ export const zh: Dict = {
   'engine.reinstall.title': 'ipatool 已安装',
   'engine.reinstall.body': '本地已存在 ipatool {version}，还要重新下载并安装吗？',
   'engine.reinstall.ok': '重新下载',
+  'engine.updateAvailable': 'ipatool {version} 已发布',
   'toast.signedOut': '已退出登录',
   'toast.imported': '已导入 {n} 条',
   'toast.importEmpty': '文件里没有可识别的内容',

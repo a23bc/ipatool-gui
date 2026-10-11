@@ -244,18 +244,13 @@ export function allocateAccountName(profiles: AccountProfile[], counter: number)
 }
 
 /**
- * Active account first (so the list never looks like it switched when a
- * background check updates `lastUsedAt`); then most recently used; ties fall
- * back to creation order.
+ * Stable account order: **when the account was added**, oldest first.
+ *
+ * Switching accounts must not reshuffle the list - the user remembers "second
+ * from the top" - so this never sorts by `lastUsedAt` or pins the active row.
  */
-export function sortAccounts(profiles: AccountProfile[], activeId?: string): AccountProfile[] {
-  return [...profiles].sort((a, b) => {
-    if (activeId) {
-      if (a.id === activeId && b.id !== activeId) return -1
-      if (b.id === activeId && a.id !== activeId) return 1
-    }
-    return b.lastUsedAt - a.lastUsedAt || a.createdAt - b.createdAt
-  })
+export function sortAccounts(profiles: AccountProfile[]): AccountProfile[] {
+  return [...profiles].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
 }
 
 /** The id of the profile to treat as active, falling back to the first one. */

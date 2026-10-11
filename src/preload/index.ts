@@ -53,6 +53,7 @@ import type { QueueAction, SearchRequest, PurchasesRequest, EnqueueOptions } fro
  */
 const EVENT_CHANNELS: ReadonlySet<string> = new Set<EventChannel>([
   'engine:status',
+  'engine:update',
   'engine:progress',
   'accounts:changed',
   'settings:changed',
@@ -99,6 +100,7 @@ const api: RendererApi = {
   installEngine: (version?: string, force?: boolean): Promise<EngineStatus> =>
     ipcRenderer.invoke(IPC.EngineInstall, version, force),
   listEngineReleases: (): Promise<Operation<EngineRelease[]>> => ipcRenderer.invoke(IPC.EngineReleases),
+  checkEngineUpdate: () => ipcRenderer.invoke(IPC.EngineCheckUpdate),
   uninstallEngine: (): Promise<EngineStatus> => ipcRenderer.invoke(IPC.EngineUninstall),
   checkAppUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(IPC.AppCheckUpdate),
 
