@@ -24,6 +24,7 @@ export function SettingsView(): ReactNode {
   const update = useAppStore((state) => state.updateSettings)
   const reset = useAppStore((state) => state.resetSettings)
   const engine = useAppStore((state) => state.engine)
+  const engineUpdate = useAppStore((state) => state.engineUpdate)
   const detect = useAppStore((state) => state.detectEngine)
   const install = useAppStore((state) => state.installEngine)
   const uninstall = useAppStore((state) => state.uninstallEngine)
@@ -169,6 +170,35 @@ export function SettingsView(): ReactNode {
               {engine.version ? <span className="badge badge-accent">{engine.version}</span> : null}
             </div>
           </Field>
+
+          {engineUpdate?.hasUpdate && engineUpdate.latest ? (
+            <Field label={t('settings.engine.updateTo', { version: engineUpdate.latest })} hint={t('settings.engine.updateHelp')}>
+              <button
+                type="button"
+                className="btn btn-primary h-[30px]"
+                disabled={engine.state === 'downloading'}
+                onClick={() => {
+                  install(engineUpdate.latest ?? '', true)
+                    .then((status) => {
+                      toast(
+                        engineReady(status)
+                          ? {
+                              kind: 'success',
+                              message: t('toast.engineInstalled', { version: status.version ?? '' })
+                            }
+                          : { kind: 'error', message: t('toast.engineFailed'), detail: status.message ?? undefined }
+                      )
+                    })
+                    .catch((error: unknown) => {
+                      toast({ kind: 'error', message: t('toast.engineFailed'), detail: String(error) })
+                    })
+                }}
+              >
+                {engine.state === 'downloading' ? <Spinner size={13} /> : <Icon name="download" size={13} />}
+                {t('settings.engine.updateNow', { version: engineUpdate.latest ?? '' })}
+              </button>
+            </Field>
+          ) : null}
 
           <Field label={t('settings.engine.path')} hint={t('settings.engine.pathHelp')} stacked>
             <div className="flex items-center gap-2">

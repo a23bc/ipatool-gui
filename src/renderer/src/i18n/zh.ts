@@ -348,6 +348,9 @@ export const zh: Dict = {
   'settings.engine.releasesLoading': '正在加载版本列表…',
   'settings.engine.uninstall': '删除托管副本',
   'settings.engine.uninstallHelp': '只删除本程序自己下载的那一份。',
+  'settings.engine.updateTo': '发现新版 ipatool {version}',
+  'settings.engine.updateNow': '更新到 {version}',
+  'settings.engine.updateHelp': '替换本程序管理的副本；系统自带的 ipatool 不会被改动。',
   'settings.engine.mirror': 'GitHub 下载镜像',
   'settings.engine.mirrorHelp':
     '会作为前缀拼到 github.com 地址前（版本元数据与资源下载走它），例如 https://gh-proxy.com。.sha256sum 校验文件始终直连 github.com 获取，镜像永远无法为自己的产物背书。留空表示直连。',

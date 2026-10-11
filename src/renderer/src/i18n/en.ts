@@ -357,6 +357,9 @@ export const en = {
   'settings.engine.releasesLoading': 'Loading releases…',
   'settings.engine.uninstall': 'Remove managed copy',
   'settings.engine.uninstallHelp': 'Only deletes the copy this app downloaded.',
+  'settings.engine.updateTo': 'ipatool {version} is available',
+  'settings.engine.updateNow': 'Update to {version}',
+  'settings.engine.updateHelp': 'Replaces the managed copy; a system-wide ipatool is left alone.',
   'settings.engine.mirror': 'GitHub download mirror',
   'settings.engine.mirrorHelp':
     'Prefix prepended to github.com URLs (release metadata and asset downloads), for proxies such as https://gh-proxy.com. The .sha256sum checksum is ALWAYS fetched from github.com directly, so a mirror can never vouch for its own payload. Leave empty for a direct connection.',
