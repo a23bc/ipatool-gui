@@ -42,6 +42,8 @@ export interface AppState {
   appInfo: AppInfoPayload | null
   settings: Settings
   engine: EngineStatus
+  /** Newest ipatool release vs installed, when the main process checked. */
+  engineUpdate: { latest: string | null; hasUpdate: boolean } | null
   /** Every registered account, plus the platform's credential-slot capability. */
   accounts: AccountsSnapshot
   /** Identity of the *active* account, or null when it has no usable session. */
@@ -153,6 +155,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     lastEmail: ''
   },
   engine: IDLE_ENGINE,
+  engineUpdate: null,
   accounts: EMPTY_ACCOUNTS,
   account: null,
   accountChecked: false,
@@ -199,6 +202,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
     // this store from the bridge (HMR / tests).
     disposers.push(api.on('engine:status', (next) => set({ engine: next })))
     disposers.push(api.on('engine:progress', (next) => set({ engine: next })))
+    disposers.push(
+      api.on('engine:update', (next) => {
+        set({ engineUpdate: { latest: next.latest, hasUpdate: next.hasUpdate } })
+        if (next.hasUpdate && next.latest) {
+          useUiStore.getState().toast({
+            kind: 'info',
+            message: get().t('engine.updateAvailable', { version: next.latest }),
+            actionLabel: get().t('nav.settings'),
+            onAction: () => useUiStore.getState().setView('settings')
+          })
+        }
+      })
+    )
 
     // The account list is the single source of truth for "who are we signed in
     // as": the active pointer, every session's state and the platform's

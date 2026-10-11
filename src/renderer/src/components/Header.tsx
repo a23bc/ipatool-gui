@@ -19,13 +19,17 @@ function useChromePadding(): { left: number; right: number } {
 
 function EnginePill(): ReactNode {
   const engine = useAppStore((state) => state.engine)
+  const engineUpdate = useAppStore((state) => state.engineUpdate)
   const t = useAppStore((state) => state.t)
   const setView = useUiStore((state) => state.setView)
 
   let label: string
   let tone: 'ok' | 'warn' | 'bad'
 
-  if (engineReady(engine)) {
+  if (engineReady(engine) && engineUpdate?.hasUpdate) {
+    label = t('engine.pill.ready', { version: engine.version ?? '' })
+    tone = 'warn'
+  } else if (engineReady(engine)) {
     label = t('engine.pill.ready', { version: engine.version ?? '' })
     tone = 'ok'
   } else if (engine.state === 'downloading') {
@@ -55,7 +59,11 @@ function EnginePill(): ReactNode {
       onClick={() => setView('settings')}
       className="no-drag flex h-[26px] shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold transition-transform active:scale-[0.97]"
       style={{ background: colors.bg, color: colors.fg }}
-      title={engine.path ?? engine.message ?? label}
+      title={
+        engineUpdate?.hasUpdate
+          ? t('engine.updateAvailable', { version: engineUpdate.latest ?? '' })
+          : (engine.path ?? engine.message ?? label)
+      }
     >
       {engine.state === 'downloading' || engine.state === 'checking' ? (
         <Spinner size={11} />

@@ -454,6 +454,7 @@ export const zh: Dict = {
   'engine.reinstall.title': 'ipatool 已安装',
   'engine.reinstall.body': '本地已存在 ipatool {version}，还要重新下载并安装吗？',
   'engine.reinstall.ok': '重新下载',
+  'engine.updateAvailable': 'ipatool {version} 已发布',
   'toast.signedOut': '已退出登录',
   'toast.imported': '已导入 {n} 条',
   'toast.importEmpty': '文件里没有可识别的内容',

@@ -26,7 +26,8 @@ import { gunzip } from 'node:zlib'
 import { promisify } from 'node:util'
 import { mkdir, rename, rm, writeFile, chmod } from 'node:fs/promises'
 import { app } from 'electron'
-import type { EngineDownloadProgress, EngineErrorCode, EngineRelease, EngineStatus } from '../shared/types'
+import type { EngineDownloadProgress, EngineErrorCode, EngineRelease, EngineStatus, EngineUpdateCheck } from '../shared/types'
+import { compareSemver } from '../shared/semver'
 import { parseSha256Sum, parseVersion } from '../shared/ipatool/parse'
 import { findTarFile, parseTar } from '../shared/tar'
 import {
@@ -284,6 +285,37 @@ export class EngineManager extends EventEmitter {
         prerelease: /rc|beta|alpha/i.test(version),
         hasAssetForThisPlatform: tokens !== null
       }))
+    }
+  }
+
+  /**
+   * Compares the installed ipatool with the newest published release.
+   *
+   * `checkAppUpdate` is about *this* GUI; engine updates are separate and only
+   * look at majd/ipatool tags. Prereleases never count as "newer".
+   */
+  async checkUpdate(): Promise<EngineUpdateCheck> {
+    const current = (this.current.version ?? '').replace(/^v/, '')
+    try {
+      const list = await this.releases(15)
+      const stable = list
+        .filter((r) => !r.prerelease && r.hasAssetForThisPlatform)
+        .map((r) => r.version.replace(/^v/, ''))
+      const latest = stable.length > 0 ? (stable[0] ?? '') : ''
+      // releases() is newest-first; pick the max in case GitHub order shifts.
+      let newest = latest
+      for (const v of stable) {
+        if (compareSemver(v, newest) > 0) newest = v
+      }
+      const hasUpdate = current !== '' && newest !== '' && compareSemver(newest, current) > 0
+      return { current, latest: newest === '' ? null : newest, hasUpdate, error: null }
+    } catch (error) {
+      return {
+        current,
+        latest: null,
+        hasUpdate: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
     }
   }
 

@@ -466,6 +466,7 @@ export const en = {
   'engine.reinstall.title': 'ipatool is already installed',
   'engine.reinstall.body': 'ipatool {version} is already on this machine. Download and install it again?',
   'engine.reinstall.ok': 'Download again',
+  'engine.updateAvailable': 'ipatool {version} is available',
   'toast.signedOut': 'Signed out',
   'toast.imported': 'Imported {n} entries',
   'toast.importEmpty': 'Nothing recognisable in that file',

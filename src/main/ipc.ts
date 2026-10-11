@@ -217,6 +217,7 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.EngineReleases, () =>
     wrap(() => engineManager.releases(30))
   )
+  ipcMain.handle(IPC.EngineCheckUpdate, () => engineManager.checkUpdate())
   ipcMain.handle(IPC.AppCheckUpdate, () => checkAppUpdate())
 
   /* ---------------------------------------------------------------- *

@@ -15,6 +15,7 @@ import type {
   DownloadRequest,
   EngineRelease,
   EngineStatus,
+  EngineUpdateCheck,
   LogLine,
   LoginResult,
   Operation,
@@ -49,6 +50,7 @@ export const IPC = Object.freeze({
   EngineInstall: 'engine:install',
   EngineReleases: 'engine:releases',
   EngineUninstall: 'engine:uninstall',
+  EngineCheckUpdate: 'engine:check-update',
   AppCheckUpdate: 'app:check-update',
 
 
@@ -160,6 +162,7 @@ export interface SessionCheck {
 /** Main -> renderer push events. */
 export interface EventPayloadMap {
   'engine:status': EngineStatus
+  'engine:update': EngineUpdateCheck
   'engine:progress': EngineStatus
   'accounts:changed': AccountsSnapshot
   'settings:changed': Settings
@@ -202,6 +205,8 @@ export interface RendererApi {
   installEngine(version?: string, force?: boolean): Promise<EngineStatus>
   listEngineReleases(): Promise<Operation<EngineRelease[]>>
   uninstallEngine(): Promise<EngineStatus>
+  /** Compares the running ipatool with published releases. */
+  checkEngineUpdate(): Promise<EngineUpdateCheck>
   checkAppUpdate(): Promise<UpdateCheckResult>
 
   /* --- accounts --------------------------------------------------- */

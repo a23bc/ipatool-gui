@@ -182,6 +182,21 @@ async function postStartup(): Promise<void> {
     /* surfaced through the engine status event */
   }
 
+  // Tell the UI when a newer ipatool is out - the version picker can already
+  // see it, but nothing used to say "you are behind".
+  if (engineManager.state.state === 'ready') {
+    void engineManager
+      .checkUpdate()
+      .then((result) => {
+        if (result.hasUpdate) {
+          for (const win of BrowserWindow.getAllWindows()) {
+            if (!win.isDestroyed()) win.webContents.send('engine:update', result)
+          }
+        }
+      })
+      .catch(() => undefined)
+  }
+
   // Only worth asking once the engine is actually usable. The probe confirms the
   // active account's session, learns its identity (or adopts a session the
   // terminal CLI created) and publishes the whole account list.
