@@ -44,6 +44,8 @@ export interface AppState {
   engine: EngineStatus
   /** Newest ipatool release vs installed, when the main process checked. */
   engineUpdate: { latest: string | null; hasUpdate: boolean } | null
+  /** Account to restore if add-account sign-in is cancelled. */
+  pendingAddRestoreId: string | null
   /** Every registered account, plus the platform's credential-slot capability. */
   accounts: AccountsSnapshot
   /** Identity of the *active* account, or null when it has no usable session. */
@@ -68,6 +70,8 @@ export interface AppState {
   /** Re-probes every account's session (not just the list snapshot). */
   refreshAccounts: () => Promise<void>
   addAccount: (remark?: string) => Promise<string | null>
+  /** If add-account was cancelled before sign-in, switch back to the previous account. */
+  restoreAccountAfterAuthClose: () => Promise<void>
   activateAccount: (id: string) => Promise<AccountSwitchResult>
   updateAccount: (id: string, remark: string) => Promise<void>
   removeAccount: (id: string) => Promise<boolean>
@@ -158,6 +162,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   engine: IDLE_ENGINE,
   engineUpdate: null,
+  pendingAddRestoreId: null,
   accounts: EMPTY_ACCOUNTS,
   account: null,
   accountChecked: false,
@@ -361,12 +366,29 @@ export const useAppStore = create<AppState>()((set, get) => ({
    */
   async addAccount(remark) {
     try {
+      // Remember who was active so a cancelled sign-in can jump back.
+      set({ pendingAddRestoreId: get().accounts.activeId || null })
       const accounts = await window.api.addAccount(remark)
       set({ accounts, account: activeIdentity(accounts) })
       return accounts.activeId || null
     } catch (error) {
+      set({ pendingAddRestoreId: null })
       useUiStore.getState().toast({ kind: 'error', message: String(error) })
       return null
+    }
+  },
+
+  async restoreAccountAfterAuthClose() {
+    const restoreTo = get().pendingAddRestoreId
+    if (!restoreTo) return
+    set({ pendingAddRestoreId: null })
+    const snap = get().accounts
+    const activeVisible = snap.accounts.find((a) => a.id === snap.activeId)
+    // Sign-in filled the new slot - stay there.
+    if (activeVisible && (activeVisible.email !== '' || activeVisible.signedIn)) return
+    // Still on an unused hidden slot (or no session): go back.
+    if (snap.activeId !== restoreTo) {
+      await get().activateAccount(restoreTo)
     }
   },
 

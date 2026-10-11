@@ -106,6 +106,7 @@ export function AuthModal(): ReactNode {
     }
 
     if (result.status === 'ok') {
+      useAppStore.setState({ pendingAddRestoreId: null })
       if (remember) await updateSettings({ lastEmail: email.trim() })
       else if (settings.lastEmail) await updateSettings({ lastEmail: '' })
       useAppStore.getState().setAccount(result.account)
@@ -165,7 +166,10 @@ export function AuthModal(): ReactNode {
               ? t('auth.subtitleNew', { name: target.name })
               : t('auth.subtitle')
       }
-      onClose={() => setOpen(false)}
+      onClose={() => {
+        setOpen(false)
+        void useAppStore.getState().restoreAccountAfterAuthClose()
+      }}
       width={440}
       footer={
         step === 'code' ? (
@@ -199,7 +203,14 @@ export function AuthModal(): ReactNode {
           </>
         ) : (
           <>
-            <button type="button" className="btn" onClick={() => setOpen(false)}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setOpen(false)
+                void useAppStore.getState().restoreAccountAfterAuthClose()
+              }}
+            >
               {t('common.cancel')}
             </button>
             <button
