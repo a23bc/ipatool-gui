@@ -153,13 +153,16 @@ export function SettingsView(): ReactNode {
                 className="h-2 w-2 rounded-full"
                 style={{
                   background: engineReady(engine)
-                    ? 'var(--success)'
+                    ? engineUpdate?.hasUpdate
+                      ? 'var(--warn)'
+                      : 'var(--success)'
                     : engine.state === 'downloading'
                       ? 'var(--warn)'
                       : 'var(--danger)'
                 }}
               />
-              <span className="mono text-[11.5px] dim">
+              {engine.version ? <span className="badge badge-accent">{engine.version}</span> : null}
+              <span className="mono min-w-0 flex-1 truncate text-[11px] dim" title={engine.path ?? undefined}>
                 {engineReady(engine)
                   ? t('settings.engine.detected', {
                       path: engine.path ?? '',
@@ -167,98 +170,51 @@ export function SettingsView(): ReactNode {
                     })
                   : t('settings.engine.notDetected')}
               </span>
-              {engine.version ? <span className="badge badge-accent">{engine.version}</span> : null}
-            </div>
-          </Field>
-
-          {engineUpdate?.hasUpdate && engineUpdate.latest ? (
-            <Field label={t('settings.engine.updateTo', { version: engineUpdate.latest })} hint={t('settings.engine.updateHelp')}>
-              <button
-                type="button"
-                className="btn btn-primary h-[30px]"
-                disabled={engine.state === 'downloading'}
-                onClick={() => {
-                  install(engineUpdate.latest ?? '', true)
-                    .then((status) => {
-                      toast(
-                        engineReady(status)
-                          ? {
-                              kind: 'success',
-                              message: t('toast.engineInstalled', { version: status.version ?? '' })
-                            }
-                          : { kind: 'error', message: t('toast.engineFailed'), detail: status.message ?? undefined }
-                      )
-                    })
-                    .catch((error: unknown) => {
-                      toast({ kind: 'error', message: t('toast.engineFailed'), detail: String(error) })
-                    })
-                }}
-              >
-                {engine.state === 'downloading' ? <Spinner size={13} /> : <Icon name="download" size={13} />}
-                {t('settings.engine.updateNow', { version: engineUpdate.latest ?? '' })}
-              </button>
-            </Field>
-          ) : null}
-
-          <Field label={t('settings.engine.path')} hint={t('settings.engine.pathHelp')} stacked>
-            <div className="flex items-center gap-2">
-              <TextInput
-                value={settings.ipatoolPath}
-                onChange={(value) => void update({ ipatoolPath: value })}
-                placeholder="/opt/homebrew/bin/ipatool"
-                mono
-                className="flex-1"
-              />
-              <button type="button" className="btn h-[30px]" onClick={() => void redetect()} disabled={detecting}>
-                {detecting ? <Spinner size={13} /> : <Icon name="refresh" size={13} />}
+              <button type="button" className="btn h-[26px]" onClick={() => void redetect()} disabled={detecting}>
+                {detecting ? <Spinner size={12} /> : <Icon name="refresh" size={12} />}
                 {t('settings.engine.redetect')}
               </button>
             </div>
           </Field>
 
-          <Toggle
-            checked={settings.autoInstallEngine}
-            onChange={(value) => void update({ autoInstallEngine: value })}
-            label={t('settings.engine.autoInstall')}
-            hint={t('settings.engine.autoInstallHelp')}
-          />
-
-          <Field label={t('settings.engine.version')} hint={releasesLoading ? t('settings.engine.releasesLoading') : undefined}>
-            <Select
-              className="w-[190px]"
-              menuMinWidth={190}
-              ariaLabel={t('settings.engine.version')}
-              value={settings.engineVersion}
-              onChange={(value) => void update({ engineVersion: value })}
-              options={[
-                { value: '', label: t('settings.engine.versionLatest') },
-                ...releases.map((release) => ({
-                  value: release.version,
-                  label: `${release.version}${release.prerelease ? ' (pre)' : ''}`
-                }))
-              ]}
-            />
-          </Field>
-
-          <Field label={t('settings.engine.mirror')} hint={t('settings.engine.mirrorHelp')} stacked>
-            <TextInput
-              value={settings.githubMirror}
-              onChange={(value) => void update({ githubMirror: value })}
-              placeholder={t('settings.engine.mirrorPlaceholder')}
-              mono
-              className="w-full"
-            />
-          </Field>
-
-          <Field label={t('settings.engine.uninstall')} hint={t('settings.engine.uninstallHelp')}>
+          <Field
+            label={
+              engineUpdate?.hasUpdate && engineUpdate.latest
+                ? t('settings.engine.updateTo', { version: engineUpdate.latest })
+                : t('settings.engine.version')
+            }
+            hint={
+              engineUpdate?.hasUpdate && engineUpdate.latest
+                ? t('settings.engine.updateHelp')
+                : releasesLoading
+                  ? t('settings.engine.releasesLoading')
+                  : t('settings.engine.installHelp')
+            }
+          >
             <div className="flex items-center gap-2">
+              {engineUpdate?.hasUpdate && engineUpdate.latest ? null : (
+                <Select
+                  className="w-[170px]"
+                  menuMinWidth={170}
+                  ariaLabel={t('settings.engine.version')}
+                  value={settings.engineVersion}
+                  onChange={(value) => void update({ engineVersion: value })}
+                  options={[
+                    { value: '', label: t('settings.engine.versionLatest') },
+                    ...releases.map((release) => ({
+                      value: release.version,
+                      label: `${release.version}${release.prerelease ? ' (pre)' : ''}`
+                    }))
+                  ]}
+                />
+              )}
               <button
                 type="button"
-                className="btn h-[28px]"
+                className={`btn h-[30px] ${engineUpdate?.hasUpdate ? 'btn-primary' : ''}`}
                 disabled={engine.state === 'downloading'}
-                title={t('settings.engine.installHelp')}
                 onClick={() => {
-                  install(settings.engineVersion)
+                  const target = engineUpdate?.hasUpdate && engineUpdate.latest ? engineUpdate.latest : settings.engineVersion
+                  install(target, engineUpdate?.hasUpdate === true)
                     .then((status) => {
                       toast(
                         engineReady(status)
@@ -272,15 +228,50 @@ export function SettingsView(): ReactNode {
                 }}
               >
                 {engine.state === 'downloading' ? <Spinner size={13} /> : <Icon name="download" size={13} />}
-                {t('engine.setup.install')}
+                {engineUpdate?.hasUpdate && engineUpdate.latest
+                  ? t('settings.engine.updateNow', { version: engineUpdate.latest })
+                  : t('engine.setup.install')}
               </button>
-              {engine.source === 'managed' ? (
-                <button type="button" className="btn btn-danger h-[28px]" onClick={() => void uninstall()}>
-                  <Icon name="trash" size={13} />
-                  {t('settings.engine.uninstall')}
-                </button>
-              ) : null}
             </div>
+          </Field>
+
+          <Field label={t('settings.engine.path')} hint={t('settings.engine.pathHelp')}>
+            <TextInput
+              value={settings.ipatoolPath}
+              onChange={(value) => void update({ ipatoolPath: value })}
+              placeholder="/opt/homebrew/bin/ipatool"
+              mono
+              className="flex-1"
+            />
+          </Field>
+
+          <Toggle
+            checked={settings.autoInstallEngine}
+            onChange={(value) => void update({ autoInstallEngine: value })}
+            label={t('settings.engine.autoInstall')}
+            hint={t('settings.engine.autoInstallHelp')}
+          />
+
+          <Field label={t('settings.engine.mirror')} hint={t('settings.engine.mirrorHelp')}>
+            <TextInput
+              value={settings.githubMirror}
+              onChange={(value) => void update({ githubMirror: value })}
+              placeholder={t('settings.engine.mirrorPlaceholder')}
+              mono
+              className="w-full"
+            />
+          </Field>
+
+          <Field label={t('settings.engine.uninstall')} hint={t('settings.engine.uninstallHelp')}>
+            <button
+              type="button"
+              className="btn btn-danger h-[28px]"
+              disabled={engine.source !== 'managed'}
+              onClick={() => void uninstall()}
+            >
+              <Icon name="trash" size={13} />
+              {t('settings.engine.uninstall')}
+            </button>
           </Field>
 
           {appInfo ? (

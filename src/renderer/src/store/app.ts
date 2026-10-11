@@ -294,12 +294,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }
     const engine = await window.api.installEngine(version, force === true)
     set({ engine })
+    // Clear or refresh the "newer ipatool" banner so a successful update
+    // does not keep nagging.
+    void window.api
+      .checkEngineUpdate()
+      .then((check) => set({ engineUpdate: { latest: check.latest, hasUpdate: check.hasUpdate } }))
+      .catch(() => set({ engineUpdate: null }))
     return engine
   },
 
   async uninstallEngine() {
     const engine = await window.api.uninstallEngine()
-    set({ engine })
+    set({ engine, engineUpdate: null })
     return engine
   },
 
