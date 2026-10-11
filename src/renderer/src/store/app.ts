@@ -65,6 +65,8 @@ export interface AppState {
   setAccount: (account: AccountInfo | null) => void
 
   getAccounts: () => Promise<AccountsSnapshot>
+  /** Re-probes every account's session (not just the list snapshot). */
+  refreshAccounts: () => Promise<void>
   addAccount: (remark?: string) => Promise<string | null>
   activateAccount: (id: string) => Promise<AccountSwitchResult>
   updateAccount: (id: string, remark: string) => Promise<void>
@@ -341,6 +343,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const accounts = await window.api.getAccounts()
     set({ accounts, account: activeIdentity(accounts) })
     return accounts
+  },
+
+  async refreshAccounts() {
+    const accounts = await window.api.refreshAccounts()
+    set({ accounts, account: activeIdentity(accounts) })
   },
 
   /**

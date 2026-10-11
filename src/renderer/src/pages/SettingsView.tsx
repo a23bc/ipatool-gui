@@ -213,7 +213,12 @@ export function SettingsView(): ReactNode {
                 className={`btn h-[30px] ${engineUpdate?.hasUpdate ? 'btn-primary' : ''}`}
                 disabled={engine.state === 'downloading'}
                 onClick={() => {
-                  const target = engineUpdate?.hasUpdate && engineUpdate.latest ? engineUpdate.latest : settings.engineVersion
+                  const target =
+                    engineUpdate?.hasUpdate && engineUpdate.latest ? engineUpdate.latest : settings.engineVersion
+                  if (engineUpdate?.hasUpdate && engineUpdate.latest) {
+                    // Keep the version picker in step with what we just installed.
+                    void update({ engineVersion: engineUpdate.latest })
+                  }
                   install(target, engineUpdate?.hasUpdate === true)
                     .then((status) => {
                       toast(
@@ -350,12 +355,6 @@ export function SettingsView(): ReactNode {
             onChange={(value) => void update({ isolateSessionHome: value })}
             label={t('settings.account.isolateHome')}
             hint={t('settings.account.isolateHomeHelp')}
-          />
-
-          <Toggle
-            checked={settings.verbose}
-            onChange={(value) => void update({ verbose: value })}
-            label={t('settings.account.verbose')}
           />
         </Section>
 
@@ -495,7 +494,10 @@ export function SettingsView(): ReactNode {
               ]}
             />
           </Field>
+        </Section>
 
+        {/* ---------------- advanced ---------------- */}
+        <Section title={t('settings.section.advanced')}>
           <Field label={t('settings.appearance.maxLogLines')}>
             <NumberInput
               value={settings.maxLogLines}
@@ -505,10 +507,13 @@ export function SettingsView(): ReactNode {
               onChange={(value) => void update({ maxLogLines: value })}
             />
           </Field>
-        </Section>
 
-        {/* ---------------- advanced ---------------- */}
-        <Section title={t('settings.section.advanced')}>
+          <Toggle
+            checked={settings.verbose}
+            onChange={(value) => void update({ verbose: value })}
+            label={t('settings.account.verbose')}
+          />
+
           <Toggle
             checked={settings.confirmCloseWhileDownloading}
             onChange={(value) => void update({ confirmCloseWhileDownloading: value })}

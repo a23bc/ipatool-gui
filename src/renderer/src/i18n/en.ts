@@ -376,7 +376,7 @@ export const en = {
   'settings.account.passphraseWarning':
     'If you already use ipatool in a terminal, use the same passphrase here or the stored credentials cannot be decrypted.',
   'settings.accounts.help': 'Each account gets its own session directory, so signing in to one never signs the others out.',
-  'settings.account.isolateHome': 'Isolate each account\u2019s home directory',
+  'settings.account.isolateHome': 'Isolate each account\u2019s home directory (recommended)',
   'settings.account.isolateHomeHelp':
     'ipatool prefers ~/.ipatool whenever it exists, which would make every account share one session. Running it with a per-account home directory removes that fallback. Turn this off only if it interferes with a future ipatool build - the app then moves ~/.ipatool aside instead.',
   'settings.account.verbose': 'Verbose ipatool logs',

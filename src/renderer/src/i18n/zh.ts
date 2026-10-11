@@ -367,7 +367,7 @@ export const zh: Dict = {
   'settings.account.passphraseWarning':
     '如果你也在终端里用 ipatool，这里要填同一个口令，否则已保存的凭据无法解密。',
   'settings.accounts.help': '每个账户有自己的会话目录，登录其中一个不会把其他账户挤下线。',
-  'settings.account.isolateHome': '为每个账户隔离 HOME 目录',
+  'settings.account.isolateHome': '为每个账户隔离 HOME 目录（推荐）',
   'settings.account.isolateHomeHelp':
     '只要 ~/.ipatool 存在，ipatool 就会优先使用它，从而让所有账户共用同一份会话。让每次调用跑在各自的 HOME 目录下即可消除这条回退路径。只有在它与未来的 ipatool 版本冲突时才需要关闭——关闭后本程序会改为把 ~/.ipatool 挪走。',
   'settings.account.verbose': 'ipatool 详细日志',
