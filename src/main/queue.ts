@@ -389,6 +389,10 @@ export class DownloadQueue extends EventEmitter {
     while (this.running.size < this.concurrency) {
       const next = this.items.find((item) => item.state === 'queued')
       if (!next) break
+      // `start()` reserves its slot synchronously (before its first await), so
+      // `running.size` is already incremented when this loop re-tests the
+      // condition. Without that reservation the loop saw the pre-await size and
+      // launched every queued item at once, making the 1..8 setting decorative.
       void this.start(next)
     }
   }
@@ -402,18 +406,10 @@ export class DownloadQueue extends EventEmitter {
     item.startedAt = Date.now()
     item.error = null
     item.attempts += 1
-    this.emitSnapshot()
 
-    try {
-      await mkdir(item.outputDir, { recursive: true })
-    } catch (error) {
-      this.fail(item, `Could not create the output folder: ${(error as Error).message}`)
-      return
-    }
-
-    const rate = new RateEstimator(0.25)
-    let sample: ProgressSample | null = null
-
+    // Reserve the concurrency slot *before* the first await. pump() decides how
+    // many downloads may run by reading `running.size`, so a reservation made
+    // after `await mkdir(...)` let the loop start every queued item at once.
     const handle: RunningDownload = {
       cancel: () => {},
       timer: null,
@@ -421,6 +417,26 @@ export class DownloadQueue extends EventEmitter {
       stopRequested: false
     }
     this.running.set(item.id, handle)
+    this.emitSnapshot()
+
+    // Only ever drop *this* handle. After pause -> immediate resume a second
+    // start() may already own the slot; deleting by id unconditionally would
+    // release the new download's reservation and let the pool over-subscribe.
+    const release = (): void => {
+      this.clearTimers(handle)
+      if (this.running.get(item.id) === handle) this.running.delete(item.id)
+    }
+
+    try {
+      await mkdir(item.outputDir, { recursive: true })
+    } catch (error) {
+      release()
+      this.fail(item, `Could not create the output folder: ${(error as Error).message}`)
+      return
+    }
+
+    const rate = new RateEstimator(0.25)
+    let sample: ProgressSample | null = null
 
     // The task id only exists once execute() has allocated it; if the user asked
     // to stop in the meantime, cancel immediately when it arrives.
@@ -504,15 +520,20 @@ export class DownloadQueue extends EventEmitter {
           output: item.outputDir,
           ...(item.externalVersionID ? { externalVersionID: item.externalVersionID } : {}),
           ...(item.platform ? { platform: item.platform } : {}),
-          purchase: item.purchase
+          purchase: item.purchase,
+          // Run as the account that was active when the item was queued, not
+          // whoever happens to be active now: the purchase and the download are
+          // that Apple ID's licence, and the row is labelled with it. An empty
+          // id means an item persisted before multi-account existed; those keep
+          // the old behaviour and fall back to the active account.
+          ...(item.accountId ? { accountId: item.accountId } : {})
         },
         onProgress,
         onTask
       )
       outcomePath = outcome.output
     } catch (error) {
-      this.clearTimers(handle)
-      this.running.delete(item.id)
+      release()
 
       if (handle.stopRequested) {
         // stop() already moved the item to paused/canceled.
@@ -531,8 +552,7 @@ export class DownloadQueue extends EventEmitter {
       return
     }
 
-    this.clearTimers(handle)
-    this.running.delete(item.id)
+    release()
     this.progressStamps.delete(item.id)
 
     const finalPath = outcomePath || (await this.findFinishedFile(item)) || ''

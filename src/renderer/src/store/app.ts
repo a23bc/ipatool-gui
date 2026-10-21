@@ -55,6 +55,12 @@ export interface AppState {
   locale: Locale
   t: Translator
   ready: boolean
+  /**
+   * Why the first boot failed, or null. Without this a failed init left the app
+   * on a spinner forever: the latch below was already set, so nothing could
+   * retry, and the rejection was dropped by the caller.
+   */
+  bootError: string | null
 
   init: () => Promise<void>
   updateSettings: (patch: Partial<Settings>) => Promise<void>
@@ -170,18 +176,33 @@ export const useAppStore = create<AppState>()((set, get) => ({
   locale: 'en-US',
   t: createTranslator('en-US'),
   ready: false,
+  bootError: null,
 
   async init() {
     if (initialised) return
     initialised = true
 
     const api = window.api
-    const [appInfo, settings, engine, accounts] = await Promise.all([
-      api.getAppInfo(),
-      api.getSettings(),
-      api.getEngineStatus(),
-      api.getAccounts()
-    ])
+    let appInfo
+    let settings
+    let engine
+    let accounts
+    try {
+      ;[appInfo, settings, engine, accounts] = await Promise.all([
+        api.getAppInfo(),
+        api.getSettings(),
+        api.getEngineStatus(),
+        api.getAccounts()
+      ])
+    } catch (error) {
+      // Release the latch so the UI can offer a retry. The failure is surfaced
+      // instead of being swallowed by the caller's dropped promise.
+      initialised = false
+      const message = error instanceof Error ? error.message : String(error)
+      set({ bootError: message })
+      console.error('[renderer] boot failed', error)
+      return
+    }
 
     const systemTheme: 'light' | 'dark' =
       typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: light)').matches
@@ -201,7 +222,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       systemTheme,
       locale,
       t: createTranslator(locale),
-      ready: true
+      ready: true,
+      bootError: null
     })
 
     // --- event subscriptions -------------------------------------------
