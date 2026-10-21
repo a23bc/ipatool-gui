@@ -27,6 +27,8 @@ import type { DownloadRequest, Platform, ProgressEvent, QueueItem, QueueSnapshot
 import { RateEstimator } from '../shared/format'
 import { mergeProgress, type ProgressSample } from '../shared/ipatool/parse'
 import { classifyError, shorten } from '../shared/ipatool/errors'
+import { isInsideRoot } from '../shared/validate'
+import { expandUserPath } from './paths'
 import { ApiError, ipatoolApi } from './api'
 import { accounts } from './accounts'
 import { settingsStore } from './settings'
@@ -193,7 +195,12 @@ export class DownloadQueue extends EventEmitter {
 
       const platform = (request.platform ?? settings.defaultPlatform ?? '') as Platform
       const externalVersionID = String(request.externalVersionID ?? '')
-      const outputDir = request.outputDir?.trim() || settings.downloadDir
+      // The destination is renderer-supplied and is used for `mkdir -p`, as the
+      // child process cwd and as `ipatool -o`, so it is confined to the
+      // configured download directory. A request outside it falls back to the
+      // default rather than creating directories anywhere on disk.
+      const requestedDir = request.outputDir?.trim() || ''
+      const outputDir = requestedDir === '' ? settings.downloadDir : this.confineOutputDir(requestedDir, settings.downloadDir)
       // Pin the account now, not at start time: the user may switch accounts
       // while the item is queued, and the download - and any purchase it triggers
       // - has to happen on the account that was selected when it was added.
@@ -295,6 +302,21 @@ export class DownloadQueue extends EventEmitter {
         break
     }
     this.persist()
+  }
+
+  /**
+   * Keeps a requested download destination inside the configured download dir.
+   *
+   * `outputDir` comes from the renderer and is later used for `mkdir -p`, as the
+   * child process cwd and as `ipatool -o`, so an out-of-tree value would let a
+   * compromised renderer write anywhere. Out-of-tree requests degrade to the
+   * default directory instead of failing the whole enqueue: the user still gets
+   * their download, just in the place the app owns.
+   */
+  private confineOutputDir(requested: string, downloadDir: string): string {
+    const base = path.resolve(expandUserPath(downloadDir))
+    const candidate = path.resolve(expandUserPath(requested))
+    return isInsideRoot(candidate, base, process.platform === 'win32') ? candidate : base
   }
 
   private reorder(id: string, delta: number): void {
@@ -452,13 +474,20 @@ export class DownloadQueue extends EventEmitter {
 
     const publish = (): void => {
       const received = Math.max(0, item.progress.received)
-      const parsedTotal = sample?.total ?? null
+
+      // A candidate total is only usable when it is both plausible *and* larger
+      // than what is already on disk. progressbar is created before ipatool
+      // calls ChangeMax64, and the parser can derive a total from a lone size
+      // plus a percentage - so on a resumed download a derived total can be
+      // smaller than the seeded byte count. Accepting it pinned the row at 100%
+      // with a 0 ETA for the rest of the transfer.
+      const candidates = [sample?.total ?? null, item.progress.total ?? null]
       const total =
-        parsedTotal && parsedTotal >= MIN_PLAUSIBLE_TOTAL
-          ? parsedTotal
-          : item.progress.total && item.progress.total >= MIN_PLAUSIBLE_TOTAL
-            ? item.progress.total
-            : null
+        candidates.find(
+          (value): value is number =>
+            typeof value === 'number' && value >= MIN_PLAUSIBLE_TOTAL && value > received
+        ) ?? null
+
       item.progress.received = received
       item.progress.total = total
       item.progress.percent =

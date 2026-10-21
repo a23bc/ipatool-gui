@@ -47,7 +47,27 @@ let generation = 0
 let queue: string[] = []
 const requested = new Set<string>()
 const failed = new Set<string>()
-let inFlight = 0
+/**
+ * In-flight count for the *current* generation.
+ *
+ * A single module-level counter was reset to 0 by load() while workers from the
+ * previous session were still outstanding. Their `finally` then decremented the
+ * new counter (going negative) and the completion check could either leave
+ * `working` stuck true or let the pool exceed CONCURRENCY. Each generation now
+ * owns its own counter, so a stale worker can only release its own slot.
+ */
+const inFlightByGeneration = new Map<number, number>()
+
+function inFlightFor(generationId: number): number {
+  return inFlightByGeneration.get(generationId) ?? 0
+}
+
+function adjustInFlight(generationId: number, delta: number): number {
+  const next = Math.max(0, inFlightFor(generationId) + delta)
+  if (next === 0) inFlightByGeneration.delete(generationId)
+  else inFlightByGeneration.set(generationId, next)
+  return next
+}
 
 type Set = (partial: Partial<VersionsState>) => void
 type Get = () => VersionsState
@@ -56,10 +76,10 @@ async function pump(set: Set, get: Get): Promise<void> {
   const myGeneration = generation
   set({ working: true })
 
-  while (queue.length > 0 && inFlight < CONCURRENCY) {
+  while (queue.length > 0 && inFlightFor(myGeneration) < CONCURRENCY) {
     const id = queue.shift()
     if (id === undefined) break
-    inFlight += 1
+    adjustInFlight(myGeneration, 1)
 
     void (async () => {
       try {
@@ -79,16 +99,18 @@ async function pump(set: Set, get: Get): Promise<void> {
           failed.add(id)
         }
       } finally {
-        inFlight -= 1
+        const remaining = adjustInFlight(myGeneration, -1)
+        // A worker from a superseded generation must not touch the new pool's
+        // state: its counter is its own, so there is nothing to release.
         if (generation === myGeneration) {
-          if (queue.length === 0 && inFlight === 0) set({ working: false })
+          if (queue.length === 0 && remaining === 0) set({ working: false })
           else void pump(set, get)
         }
       }
     })()
   }
 
-  if (queue.length === 0 && inFlight === 0) set({ working: false })
+  if (queue.length === 0 && inFlightFor(myGeneration) === 0) set({ working: false })
 }
 
 export const useVersionsStore = create<VersionsState>()((set, get) => ({
@@ -101,12 +123,13 @@ export const useVersionsStore = create<VersionsState>()((set, get) => ({
   error: null,
 
   async load(app, platform) {
-    // Invalidate any worker pool from a previous drawer session.
+    // Invalidate any worker pool from a previous drawer session. The previous
+    // generation keeps its own in-flight counter, so workers still running from
+    // it cannot disturb the new pool's accounting.
     generation += 1
     queue = []
     requested.clear()
     failed.clear()
-    inFlight = 0
 
     set({
       app,
@@ -148,9 +171,11 @@ export const useVersionsStore = create<VersionsState>()((set, get) => ({
   },
 
   stop() {
+    // Bumping the generation abandons the current pool: its counter is dropped
+    // with it, so any worker still running cannot affect the next session.
     generation += 1
+    inFlightByGeneration.clear()
     queue = []
-    inFlight = 0
     set({ working: false })
   },
 

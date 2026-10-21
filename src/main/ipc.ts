@@ -27,6 +27,7 @@ import type { QueueAction, SessionCheck } from '../shared/ipc'
 import { IPC } from '../shared/ipc'
 import { quoteCommand } from '../shared/format'
 import { redactArgs } from '../shared/redact'
+import { isInsideRoot as sharedIsInsideRoot, safeCountryCode, safeVersionString } from '../shared/validate'
 import { parseImportList } from '../shared/import'
 import { notificationCopy } from '../shared/notifications'
 import { expandUserPath } from './paths'
@@ -108,7 +109,7 @@ const OPENABLE_FILE = /\.(ipa|pkg|txt|log)$/i
 
 /** True when `resolved` is `root` itself or lives inside it. */
 function isInsideRoot(resolved: string, root: string): boolean {
-  return resolved === root || resolved.startsWith(root + path.sep)
+  return sharedIsInsideRoot(resolved, root, process.platform === 'win32')
 }
 
 /**
@@ -210,9 +211,25 @@ export function registerIpc(): void {
 
   ipcMain.handle(IPC.EngineStatus, () => engineManager.state)
   ipcMain.handle(IPC.EngineDetect, (_e, force?: boolean) => engineManager.detect(force === true))
-  ipcMain.handle(IPC.EngineInstall, (_e, version?: string, force?: boolean) =>
-    engineManager.install(version ?? '', force === true)
-  )
+  ipcMain.handle(IPC.EngineInstall, (_e, version?: string, force?: boolean) => {
+    // `version` is interpolated into the GitHub release URL and into the temp
+    // file name beside the managed binary, so only a real version shape is
+    // accepted. An empty string still means "resolve the newest release".
+    const requested = version === undefined || version === null ? '' : String(version)
+    if (requested.trim() !== '' && safeVersionString(requested) === '') {
+      return Promise.resolve(
+        engineManager.state.state === 'error'
+          ? engineManager.state
+          : {
+              ...engineManager.state,
+              state: 'error' as const,
+              message: `"${requested}" is not a valid ipatool version`,
+              code: 'unsupported-arch' as const
+            }
+      )
+    }
+    return engineManager.install(safeVersionString(requested), force === true)
+  })
   ipcMain.handle(IPC.EngineUninstall, () => engineManager.uninstall())
   ipcMain.handle(IPC.EngineReleases, () =>
     wrap(() => engineManager.releases(30))
@@ -401,7 +418,9 @@ export function registerIpc(): void {
    * ---------------------------------------------------------------- */
 
   ipcMain.handle(IPC.ArtworkGet, (_e, appId: number, country?: string) =>
-    artworkCache.get(Number(appId), country).catch(() => null)
+    // The country becomes part of the cache file name; normalise it here so an
+    // out-of-range value cannot even reach the cache layer.
+    artworkCache.get(Number(appId), safeCountryCode(country)).catch(() => null)
   )
   ipcMain.handle(IPC.ArtworkClearCache, () => artworkCache.clear())
 
@@ -442,14 +461,16 @@ export function registerIpc(): void {
 
     // shell.openPath launches executables, so a compromised renderer must
     // never be able to point it at an arbitrary file. Only paths the app
-    // plausibly owns are allowed: the download directory, our userData, or a
-    // queue item's output directory - and inside those, only package/log files
-    // or directories (opening a folder in the file manager is harmless).
-    const roots = [
-      settingsStore.getInternal().downloadDir,
-      app.getPath('userData'),
-      ...downloadQueue.snapshot().items.map((item) => item.outputDir)
-    ]
+    // plausibly owns are allowed: the download directory and our userData - and
+    // inside those, only package/log files or directories (opening a folder in
+    // the file manager is harmless).
+    //
+    // The trusted roots must NOT be derived from queue output directories: those
+    // are renderer-supplied, so including them let a compromised renderer widen
+    // this allow-list simply by enqueueing an item. enqueue() now rejects
+    // out-of-tree destinations instead, keeping this list fixed and owned by the
+    // main process.
+    const roots = [settingsStore.getInternal().downloadDir, app.getPath('userData')]
       .filter((dir): dir is string => typeof dir === 'string' && dir.trim() !== '')
       .map((dir) => path.resolve(expandUserPath(dir)))
     if (!roots.some((root) => isInsideRoot(resolved, root))) {
@@ -591,6 +612,12 @@ export function applySettings(settings: Settings): void {
   nativeTheme.themeSource = settings.theme
   syncTitleBarOverlay(mainWindow())
   taskRegistry.setLineCap(settings.maxLogLines)
+  // The queue reads its limit from here rather than from the settings object at
+  // start time, so editing concurrency on the Settings page must reach it too -
+  // otherwise the value is persisted and echoed in the UI while the running pool
+  // keeps the old limit until the app restarts. setConcurrency is idempotent and
+  // re-pumps, so calling it on every change is safe.
+  downloadQueue.setConcurrency(settings.concurrency)
   broadcast('settings:changed', settings)
 }
 

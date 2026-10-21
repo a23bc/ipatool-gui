@@ -160,13 +160,14 @@ const RULES: Rule[] = [
   },
   {
     code: 'app-not-found',
-    patterns: [
-      /could not find (?:the )?app/i,
-      /app not found/i,
-      /no results found/i,
-      /invalid response/i,
-      /failed to lookup/i
-    ]
+    // NOTE: deliberately no generic /invalid response/ or /failed to lookup/
+    // here. Both are emitted by upstream for *transport* failures too, and this
+    // rule sits before dns/tls/network - so a DNS failure ("...: no such host")
+    // was reported as "app not found" with retryable=false, which sent users
+    // looking for a nonexistent app instead of fixing their network. The
+    // transport rules below now win; a real lookup failure still matches via
+    // "could not find app" / "app not found".
+    patterns: [/could not find (?:the )?app/i, /app not found/i, /no results found/i]
   },
   {
     code: 'version-not-found',

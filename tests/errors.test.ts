@@ -232,3 +232,26 @@ describe('shorten surrogate safety (n-R10)', () => {
     }
   })
 })
+describe('classifyError rule ordering (audit P2-7)', () => {
+  it('classifies a DNS failure as dns, not app-not-found', () => {
+    // The audit's exact bug-1 log line: a purchase endpoint that cannot resolve.
+    const log =
+      'failed to send http request: request failed: Post ' +
+      '"https://p47-buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/volumeStoreDownloadProduct": ' +
+      'failed to make round trip: dial tcp: lookup p47-buy.itunes.apple.com: no such host'
+    expect(classifyError(log).code).toBe('dns')
+    expect(classifyError(log).retryable).toBe(true)
+  })
+
+  it('does not let the generic "invalid response" phrase shadow transport rules', () => {
+    expect(classifyError('invalid response: no such host').code).toBe('dns')
+    expect(classifyError('invalid response: x509: certificate signed by unknown authority').code).toBe('tls')
+    expect(classifyError('invalid response: connection refused').code).toBe('network')
+  })
+
+  it('still recognises a genuine missing app', () => {
+    expect(classifyError('could not find app with id 123').code).toBe('app-not-found')
+    expect(classifyError('app not found').code).toBe('app-not-found')
+    expect(classifyError('no results found').code).toBe('app-not-found')
+  })
+})

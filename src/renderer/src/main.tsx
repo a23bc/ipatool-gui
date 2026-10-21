@@ -2,6 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { disposeAppStore } from './store/app'
+import { disposeQueueStore } from './store/queue'
+import { disposeTasksStore } from './store/tasks'
 import './index.css'
 
 const container = document.getElementById('root')
@@ -27,4 +30,17 @@ if (typeof window.api === 'undefined') {
       </ErrorBoundary>
     </StrictMode>
   )
+
+  // HMR teardown: the stores keep their listeners and their "already
+  // initialised" latch on module-level state, so a hot reload would otherwise
+  // leave the old listeners attached to window.api and the new module believing
+  // it was already set up. Production builds have no import.meta.hot, so this
+  // block disappears from the shipped bundle.
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      disposeAppStore()
+      disposeQueueStore()
+      disposeTasksStore()
+    })
+  }
 }

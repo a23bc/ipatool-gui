@@ -15,7 +15,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   root: '',
-  encryptionAvailable: true
+  encryptionAvailable: true,
+  // Mirrors Electron's safeStorage.getSelectedStorageBackend(). 'basic_text' is
+  // the Linux fallback that "encrypts" with a hardcoded key.
+  backend: 'gnome_libsecret' as string | undefined
 }))
 
 vi.mock('electron', () => ({
@@ -25,6 +28,7 @@ vi.mock('electron', () => ({
   },
   safeStorage: {
     isEncryptionAvailable: () => mocks.encryptionAvailable,
+    getSelectedStorageBackend: () => mocks.backend,
     encryptString: (value: string) => Buffer.from(`mock-enc<${value}>`, 'utf8'),
     decryptString: (buffer: Buffer) => {
       const text = buffer.toString('utf8')
@@ -307,5 +311,45 @@ describe('SettingsStore passphrase handling', () => {
     await writeFile(store.filePath, '{ not json !!!', 'utf8')
     const settings = await store.load()
     expect(settings.concurrency).toBe(2)
+  })
+})
+describe('encryptionAvailable backend check (audit P2-4)', () => {
+  it('accepts a real keyring backend', async () => {
+    mocks.encryptionAvailable = true
+    mocks.backend = 'gnome_libsecret'
+    const { encryptionAvailable } = await import('@main/settings')
+    expect(encryptionAvailable()).toBe(true)
+  })
+
+  it('refuses basic_text, whose ciphertext is not secret', async () => {
+    // On Linux without a keyring daemon Electron falls back to a hardcoded key;
+    // isEncryptionAvailable() still returns true, so trusting it would write
+    // recoverable credentials to disk.
+    mocks.encryptionAvailable = true
+    mocks.backend = 'basic_text'
+    const { encryptionAvailable } = await import('@main/settings')
+    expect(encryptionAvailable()).toBe(false)
+  })
+
+  it('refuses an explicitly plaintext backend', async () => {
+    mocks.encryptionAvailable = true
+    mocks.backend = 'plaintext'
+    const { encryptionAvailable } = await import('@main/settings')
+    expect(encryptionAvailable()).toBe(false)
+  })
+
+  it('still refuses when safeStorage itself reports unavailable', async () => {
+    mocks.encryptionAvailable = false
+    mocks.backend = 'gnome_libsecret'
+    const { encryptionAvailable } = await import('@main/settings')
+    expect(encryptionAvailable()).toBe(false)
+  })
+
+  it('treats a missing getSelectedStorageBackend as no information', async () => {
+    // Older Electron builds do not expose it; absence must not disable storage.
+    mocks.encryptionAvailable = true
+    mocks.backend = undefined
+    const { encryptionAvailable } = await import('@main/settings')
+    expect(encryptionAvailable()).toBe(true)
   })
 })

@@ -21,6 +21,8 @@ export interface TasksState {
   initialised: boolean
 
   init: () => Promise<void>
+  /** Installs the IPC listeners; idempotent, called from init(). */
+  registerSubscriptions: () => void
   select: (id: string | null) => void
   setFilter: (filter: string) => void
   clear: () => Promise<void>
@@ -50,13 +52,22 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
   initialised: false,
 
   async init() {
+    // Subscribe first: awaiting listTasks() before registering meant one failed
+    // round-trip left the store permanently unsubscribed, so the Activity view
+    // stopped updating while the main process kept logging.
+    if (!subscriptionsActive) {
+      subscriptionsActive = true
+      this.registerSubscriptions()
+    }
+
     const tasks = await window.api.listTasks()
     const lines: Record<string, LogLine[]> = {}
     for (const task of tasks) lines[task.id] = task.lines
     set({ tasks, lines, initialised: true })
+  },
 
-    if (subscriptionsActive) return
-    subscriptionsActive = true
+  /** Installs the task-log IPC listeners exactly once. */
+  registerSubscriptions() {
 
     disposers.push(window.api.on('task:created', (task) => {
       set((state) => ({

@@ -180,9 +180,34 @@ export function decryptSecret(value: string): string {
   }
 }
 
+/**
+ * Backends whose "encryption" is not actually secret.
+ *
+ * Electron's `basic_text` backend encrypts with a hardcoded key, so anything
+ * stored through it is readable by any local user. `isEncryptionAvailable()`
+ * reports true for it, which would make the module's "never write plaintext"
+ * promise false on a Linux box without a keyring daemon.
+ */
+const NON_SECRET_BACKENDS = new Set(['basic_text', 'plaintext'])
+
+/**
+ * True when `safeStorage` can protect a secret at rest.
+ *
+ * Availability alone is not enough: the selected backend decides whether the
+ * ciphertext is actually secret. Older Electron builds do not expose
+ * `getSelectedStorageBackend`, so its absence is treated as "no information"
+ * rather than as a failure.
+ */
 export function encryptionAvailable(): boolean {
   try {
-    return safeStorage.isEncryptionAvailable()
+    if (!safeStorage.isEncryptionAvailable()) return false
+    const backend = (
+      safeStorage as unknown as { getSelectedStorageBackend?: () => string }
+    ).getSelectedStorageBackend?.()
+    if (typeof backend === 'string' && NON_SECRET_BACKENDS.has(backend.toLowerCase())) {
+      return false
+    }
+    return true
   } catch {
     return false
   }

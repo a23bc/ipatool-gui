@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/ipatool-runner-test', isReady: () => false }
 }))
 
-import { isProgressRender, LineBuffer } from '@main/runner'
+import { isProgressRender, LineBuffer, startProcess } from '@main/runner'
 
 function chunk(text: string): Buffer {
   return Buffer.from(text, 'utf8')
@@ -94,4 +94,56 @@ describe('isProgressRender', () => {
     expect(isProgressRender('searching for "telegram"')).toBe(false)
     expect(isProgressRender('')).toBe(false)
   })
+})
+// Signal semantics are POSIX-specific: on Windows Node's kill() maps to
+// TerminateProcess and there is no SIGTERM handler to ignore, so the escalation
+// path this pins cannot be exercised there.
+const describePosix = process.platform === 'win32' ? describe.skip : describe
+
+describePosix('startProcess kill escalation (audit P2-8)', () => {
+  // These spawn real child processes, so they are deliberately small and always
+  // wait for the outcome before asserting.
+  const node = process.execPath
+
+  it('terminates a child that exits on SIGTERM', async () => {
+    const handle = startProcess(node, {
+      args: ['-e', 'process.on("SIGTERM", () => process.exit(0)); setInterval(() => {}, 1000)']
+    })
+    // Give the child time to install its handler.
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    handle.kill()
+    const outcome = await handle.promise
+    expect(outcome.killed).toBe(true)
+    expect(outcome.code === 0 || outcome.signal !== null).toBe(true)
+  }, 15000)
+
+  it('escalates to SIGKILL when the child ignores SIGTERM', async () => {
+    // Before the fix this hung until the test timeout: the escalation timer
+    // tested `child.killed`, which Node sets the moment SIGTERM is *sent*, so
+    // the SIGKILL branch was dead code and the child survived.
+    const handle = startProcess(node, {
+      args: ['-e', 'process.on("SIGTERM", () => {}); setInterval(() => {}, 1000)']
+    })
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    const started = Date.now()
+    handle.kill()
+    const outcome = await handle.promise
+    const elapsed = Date.now() - started
+
+    expect(outcome.killed).toBe(true)
+    // It must actually be gone (the process cannot exit on its own here).
+    expect(outcome.signal).toBe('SIGKILL')
+    // The escalation fires at 2.5 s; allow generous headroom for CI.
+    expect(elapsed).toBeLessThan(12000)
+  }, 20000)
+
+})
+
+describe('startProcess spawn failure', () => {
+  it('reports a missing binary instead of hanging', async () => {
+    const handle = startProcess('/definitely/not/a/real/binary', { args: [] })
+    const outcome = await handle.promise
+    expect(outcome.code).toBeNull()
+    expect(outcome.stderr).toContain('failed to start')
+  }, 15000)
 })

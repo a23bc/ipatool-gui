@@ -47,17 +47,24 @@ jobs:
           # package: GitHub macOS runners cannot run `hdiutil attach`
           # ("Device not configured"), which the dmg target requires.
           # A local `npm run dist:mac` on a real Mac still produces the dmg.
+          # `-c.mac.identity=-` forces an ad-hoc signature. electron-builder only
+          # falls back to ad-hoc automatically for arm64/universal
+          # (macPackager.js: fallBackToAdhoc), so with identity auto-discovery
+          # off the x64 build produced a completely UNSIGNED bundle while the
+          # README advertised "ad-hoc signed". Both mac legs now sign ad-hoc, so
+          # the documented behaviour is true for both and the verify step can be
+          # a hard gate.
           - os: macos-14
             platform: mac
             arch: x64
             flag: '--x64'
-            extra: '-c.mac.target=dir'
+            extra: '-c.mac.target=dir -c.mac.identity=-'
             label: 'macOS x64'
           - os: macos-14
             platform: mac
             arch: arm64
             flag: '--arm64'
-            extra: '-c.mac.target=dir'
+            extra: '-c.mac.target=dir -c.mac.identity=-'
             label: 'macOS arm64'
           # Linux ships two architectures as two jobs. The arch MUST come from
           # `--x64` / `--arm64`: a target name cannot carry it (`--linux
@@ -160,30 +167,54 @@ jobs:
       # by macOS as "damaged" - see the README; this proves the bundle itself is
       # intact and correctly signed).
       #
-      # Deliberately WARN-only: `--strict` against an ad-hoc signed Electron
-      # bundle could not be tested on a real Mac from here, and a red release job
-      # would be worse than a loud warning. Promote to a hard gate once a run
-      # shows it green. The symlink count matters because an archive that lost
-      # its symlinks produces a genuinely broken .app.
-      - name: Verify the macOS bundle (ad-hoc signature, archive integrity)
+      # This step is now a hard gate on the two things that make the artifact
+      # usable: a signature that verifies, and an archive that kept its symlinks
+      # (an .app that lost them is genuinely broken, not merely unsigned).
+      # Gatekeeper rejection (spctl) stays informational: the build is not
+      # notarized by design, so a rejection is the documented, expected outcome.
+      - name: Verify the macOS bundle (signature, archive integrity)
         if: matrix.platform == 'mac'
         run: |
           APP_DIR="$(find release -maxdepth 2 -name '*.app' -type d -print -quit)"
+          if [ -z "$APP_DIR" ]; then
+            echo "::error::no .app to verify"
+            exit 1
+          fi
+
           echo "--- signature ---"
           codesign -dv --verbose=2 "$APP_DIR" 2>&1 | head -15 || true
+
           echo "--- codesign --verify --deep --strict ---"
           if codesign --verify --deep --strict --verbose=2 "$APP_DIR" 2>&1; then
             echo "signature verify: OK"
           else
-            echo "::warning::codesign --verify failed - the app may not launch on macOS"
+            echo "::error::codesign --verify failed - the app will not launch on macOS"
+            exit 1
           fi
+
           echo "--- what Gatekeeper will say (rejection is expected: not notarized) ---"
           spctl -a -t exec -vv "$APP_DIR" 2>&1 || true
-          echo "--- symlinks preserved in the archive (expect the framework set) ---"
+
+          echo "--- symlinks preserved in the archive ---"
           for archive in release/*.app.tar.gz; do
             count="$(tar -tzvf "$archive" | grep -c '^l' || true)"
             echo "$archive: $count symlink entries"
+            if [ "$count" -lt 10 ]; then
+              echo "::error::$archive kept only $count symlinks - the .app is broken"
+              exit 1
+            fi
           done
+
+      # Publish a checksum manifest so a download can be tied to this run.
+      # Without it a user has no way to verify what they installed, and the
+      # project ships unsigned binaries.
+      # Runs through scripts/sha256sums.mjs rather than sha256sum: macOS runners
+      # ship `shasum -a 256` only, BSD sort/xargs have no `-z`/`-0`, and artifact
+      # names contain spaces ("IPATool GUI-..."), which plain xargs would split.
+      # The script exits non-zero when there is nothing to checksum, so an empty
+      # manifest can never be published.
+      - name: Write SHA-256 manifest
+        run: node scripts/sha256sums.mjs release
 
       - name: List artifacts
         run: ls -lh release/
@@ -225,6 +256,7 @@ jobs:
             release/*.app.tar.gz
             release/*.AppImage
             release/*.deb
+            release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -242,6 +274,15 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+
+      # Each build job wrote its own SHA256SUMS.txt and merge-multiple flattens
+      # them onto one path, so the manifest is rebuilt from the artifacts that are
+      # actually about to be published. Checked out only for scripts/, which keeps
+      # the checksum logic in one place instead of a second shell copy.
+      - uses: actions/checkout@v7
+
+      - name: Merge checksum manifests
+        run: node scripts/sha256sums.mjs artifacts
 
       - name: Create DRAFT GitHub release
         env:
