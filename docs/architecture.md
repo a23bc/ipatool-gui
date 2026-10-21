@@ -206,7 +206,15 @@ CSS 管不到它——而本应用其他菜单（账户下拉、命令面板）�
 
 推送 `v*` 标签后，`.github/workflows/release.yml` 会在 Windows / macOS / Linux
 三个矩阵上构建并上传安装包到 Draft Release。macOS 产物是 **ad-hoc 临时签名的未公证 app**，
-Windows 产物未签名：
+Windows 产物未签名。
+
+> 两个 macOS 架构（x64 / arm64）都通过 `-c.mac.identity=-` **显式**要求 ad-hoc 签名。
+> 这一点必须显式指定：electron-builder 只在 arm64 / universal 上才会自动回退到 ad-hoc
+> （`macPackager.js` 的 `fallBackToAdhoc`），而 CI 又设置了
+> `CSC_IDENTITY_AUTO_DISCOVERY=false`——两者叠加会让 x64 产物**完全没有签名**，
+> 与本文档的描述不符。签名校验与符号链接数量在 CI 中是**硬门禁**，不再是警告。
+
+发布时会同时上传 `SHA256SUMS.txt`，下载后可用 `sha256sum -c SHA256SUMS.txt` 校验产物。
 
 - **macOS**：Gatekeeper 对「被浏览器打上 quarantine 标记、又没有 Developer ID 签名」的 app
   报的是 **「「IPATool GUI」已损坏，无法打开」**——**这不是文件真的坏了**，而是它无法被公证校验。
