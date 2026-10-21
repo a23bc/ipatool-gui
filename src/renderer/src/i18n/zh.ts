@@ -11,6 +11,8 @@ export const zh: Dict = {
   'app.name': 'IPATool GUI',
   'app.tagline': 'ipatool 的桌面客户端',
 
+  'boot.failed.title': '应用启动失败',
+  'boot.failed.body': '界面无法与后台进程通信。通常是暂时性问题——请重试；若反复出现，请重启应用。',
   'common.ok': '确定',
   'common.cancel': '取消',
   'common.close': '关闭',

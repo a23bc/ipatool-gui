@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useAppStore } from '@renderer/store/app'
 import { useQueueStore } from '@renderer/store/queue'
@@ -22,6 +22,43 @@ import { DownloadsView } from '@renderer/pages/DownloadsView'
 import { PurchasesView } from '@renderer/pages/PurchasesView'
 import { SearchView } from '@renderer/pages/SearchView'
 import { SettingsView } from '@renderer/pages/SettingsView'
+
+/** First-paint placeholder while the stores are booting. */
+function BootLoading(): ReactNode {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3">
+      <Spinner size={20} />
+      <p className="faint text-[12px]">{useAppStore.getState().t('common.loading')}</p>
+    </div>
+  )
+}
+
+/**
+ * Shown when the initial IPC round-trip failed.
+ *
+ * The old behaviour was an endless spinner: `init()` set its latch before the
+ * await, so the failure could never be retried and the window looked hung. A
+ * failed boot is almost always transient (main process still starting, a handler
+ * not registered yet), so the primary action is a retry.
+ */
+function BootError({ message, onRetry }: { message: string; onRetry: () => void }): ReactNode {
+  const t = useAppStore((state) => state.t)
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="text-[13px] font-medium">{t('boot.failed.title')}</p>
+      <p className="faint max-w-[520px] text-[12px] leading-relaxed">{t('boot.failed.body')}</p>
+      <pre
+        className="mono max-h-[140px] max-w-[520px] overflow-auto whitespace-pre-wrap break-words rounded-md border px-3 py-2 text-[11.5px]"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-elev)', color: 'var(--danger)' }}
+      >
+        {message}
+      </pre>
+      <button type="button" className="btn btn-primary" onClick={onRetry}>
+        {t('common.retry')}
+      </button>
+    </div>
+  )
+}
 
 /** Digit shortcuts map onto sidebar order, so 1..6 jumps between views. */
 const VIEW_SHORTCUTS: Record<string, View> = {
@@ -53,7 +90,14 @@ function CurrentView({ view }: { view: View }): ReactNode {
 
 export function App(): ReactNode {
   const ready = useAppStore((state) => state.ready)
+  const bootError = useAppStore((state) => state.bootError)
   const initApp = useAppStore((state) => state.init)
+  const retryBoot = useCallback(() => {
+    // init() clears its own latch on failure, so a second call is a real retry.
+    void initApp().catch((error: unknown) => {
+      console.error('[renderer] retry failed', error)
+    })
+  }, [initApp])
   const initQueue = useQueueStore((state) => state.init)
   const initTasks = useTasksStore((state) => state.init)
   const view = useUiStore((state) => state.view)
@@ -65,8 +109,16 @@ export function App(): ReactNode {
   useEffect(() => {
     void (async () => {
       await initApp()
+      // Only boot the per-view stores once the app store actually came up: if it
+      // failed, `bootError` is set and the retry button re-runs this effect, so
+      // queue/task listeners are registered exactly once on the successful path.
+      if (!useAppStore.getState().ready) return
       await Promise.all([initQueue(), initTasks()])
-    })()
+    })().catch((error: unknown) => {
+      // The store handles its own boot failure; this is the last line of defence
+      // against an unhandled rejection from the queue/task initialisers.
+      console.error('[renderer] store initialisation failed', error)
+    })
   }, [initApp, initQueue, initTasks])
 
   // Bind the stores that hold per-account data to the active account. Search
@@ -112,12 +164,7 @@ export function App(): ReactNode {
   // document level, CommandPalette and VersionsDrawer listen on window.)
 
   if (!ready) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
-        <Spinner size={20} />
-        <p className="faint text-[12px]">{useAppStore.getState().t('common.loading')}</p>
-      </div>
-    )
+    return bootError ? <BootError message={bootError} onRetry={retryBoot} /> : <BootLoading />
   }
 
   return (

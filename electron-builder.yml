@@ -43,7 +43,13 @@ buildDependenciesFromSource: false
 
 win:
   icon: build/icon.png
-  artifactName: ${name}-${version}-win-${arch}.${ext}
+  # NOTE: no platform-level `artifactName` here on purpose. A single pattern is
+  # inherited by *both* Windows targets below, so nsis and portable would expand
+  # to the same `<name>-<version>-win-<arch>.exe` and race for one output path -
+  # the release would then contain only one of the two artifacts the docs
+  # promise. Each target names itself instead (see `nsis.artifactName` and
+  # `portable.artifactName`), which is also what electron-builder's own defaults
+  # do via installerFilenamePattern().
   # Unsigned by default. Forks with a code-signing certificate can enable it
   # WITHOUT editing this file by exporting:
   #   WIN_CSC_LINK (or CSC_LINK) = path/base64 of the .pfx
@@ -60,6 +66,7 @@ win:
     - target: portable
       arch: [x64]
 nsis:
+  artifactName: ${name}-${version}-win-${arch}-setup.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
@@ -67,6 +74,8 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: IPATool GUI
+portable:
+  artifactName: ${name}-${version}-win-${arch}-portable.${ext}
 
 mac:
   icon: build/icon.png
