@@ -123,7 +123,9 @@ More build, test, and release detail: [docs/architecture.md](docs/architecture.m
 | Doc | Contents |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | Multi-account model, pause/resume, progress parsing, security model, packaging & CI, code map |
-| [Security](docs/architecture.md#安全披露) | Report vulnerabilities via Private vulnerability reporting — do not open a public issue |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Engine not found, macOS keychain and Gatekeeper problems, proxy/network errors |
+| [SECURITY.md](SECURITY.md) | What is in scope, and how to report a vulnerability privately — do not open a public issue |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup, the checks CI runs, where code belongs, what a useful test looks like |
 
 Worth knowing (details in the docs):
 

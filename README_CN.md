@@ -113,7 +113,9 @@ npm run dist:linux   # AppImage + deb
 | 文档 | 内容 |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | 多账户模型、暂停续传原理、进度解析、安全模型、打包与 CI、代码地图 |
-| [安全披露](docs/architecture.md#安全披露) | 漏洞请走 Private vulnerability reporting，勿开公开 issue |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | 引擎装不上、macOS 钥匙串与 Gatekeeper 问题、代理/网络报错对照表 |
+| [SECURITY.md](SECURITY.md) | 安全边界与私密报告渠道，勿开公开 issue |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 开发环境、CI 检查项、代码该放哪一层、什么算有用的测试 |
 
 几个值得知道的设计点（细节在文档里）：
 
