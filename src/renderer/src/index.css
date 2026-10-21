@@ -122,6 +122,17 @@ body {
   background-clip: content-box;
 }
 
+/*
+ * Custom component classes.
+ *
+ * These live in @layer components on purpose. Unlayered CSS beats every
+ * @layer, so while these rules sat outside a layer they silently won against
+ * Tailwind utilities - a call site writing `class="btn h-[26px]"` got the
+ * .btn height and the utility was dropped, with no warning. Inside a layer the
+ * normal cascade applies: utilities (a later layer) can override components,
+ * which is what every call site already assumes.
+ */
+@layer components {
 /* ------------------------------------------------------------------ *
  * Window chrome
  * ------------------------------------------------------------------ */
@@ -620,6 +631,7 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   border-radius: var(--radius-sm);
+}
 }
 @keyframes shimmer {
   to {
