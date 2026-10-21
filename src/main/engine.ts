@@ -39,7 +39,16 @@ import {
   fetchTextWithFinalUrl,
   HttpError
 } from './http'
-import { isExecutable, isWindows, lookupOnPath, managedBinaryPath, managedDir, resolveEngine } from './paths'
+import {
+  expandUserPath,
+  isExecutable,
+  isIpatoolBinaryPath,
+  isWindows,
+  lookupOnPath,
+  managedBinaryPath,
+  managedDir,
+  resolveEngine
+} from './paths'
 import { run } from './runner'
 import { settingsStore } from './settings'
 
@@ -186,6 +195,18 @@ export class EngineManager extends EventEmitter {
       const resolved = await resolveEngine(override)
 
       if (!resolved) {
+        // A configured-but-rejected override is reported separately from "not
+        // installed": the user pointed the app at something that is not an
+        // ipatool binary, and silently falling back would hide that (and, before
+        // the name check existed, would have executed it).
+        if (override.trim() !== '' && !isIpatoolBinaryPath(expandUserPath(override))) {
+          return this.set(
+            status('error', {
+              message: `"${override}" is not an ipatool binary; refusing to run it`,
+              code: 'not-executable'
+            })
+          )
+        }
         return this.set(
           status('missing', {
             message: 'ipatool was not found on this machine',
