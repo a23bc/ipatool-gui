@@ -294,36 +294,36 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           if [[ "$TAG" != v* ]]; then TAG="v$(date +%Y.%m.%d)-${GITHUB_RUN_ID}"; fi
-          # Notes go through a file: the body has quotes and backticks that
-          # would otherwise be eaten by the shell inside --notes "...".
-          cat > /tmp/release-notes.md <<'EOF'
-          ## IPATool GUI
 
-          Windows: NSIS installer + portable exe (x64).
-          Linux: deb + AppImage, built separately for x64 and arm64.
-          macOS: runnable .app.tar.gz for x64 and arm64 (build the dmg installer locally with `npm run dist:mac`).
+          # Previous *published* release, for the compare link. /releases/latest
+          # excludes drafts and prereleases, so the draft for v0.2.0 links back to
+          # v0.1.1 rather than to an earlier draft of its own.
+          PREV="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>/dev/null || true)"
+          if [[ -n "$PREV" ]]; then
+            CHANGELOG="**Full changelog:** [${PREV}...${TAG}](https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...${TAG})"
+          else
+            CHANGELOG="**Full changelog:** [${TAG}](https://github.com/${GITHUB_REPOSITORY}/commits/${TAG})"
+          fi
 
-          ### macOS
-
-          Builds are ad-hoc code signed but **not notarized**, so Gatekeeper may report the
-          app as "damaged" - that is the download quarantine flag, not a broken bundle. Move it to
-          /Applications and run:
-
-          ```
-          xattr -dr com.apple.quarantine "/Applications/IPATool GUI.app"
-          ```
-
-          then open it normally (once is enough). Extract with Finder or `tar -xzf`, never with a
-          tool that drops symlinks or the executable bit.
-
-          ### Windows
-
-          Accept the SmartScreen prompt.
-
-          The app itself downloads and verifies [ipatool](https://github.com/majd/ipatool) on first launch - it is not bundled.
-
-          This release was created as a **draft** and is not public.
-          EOF
+          # Notes go through a file: the body has quotes and backticks that would
+          # otherwise be eaten by the shell inside --notes "...".
+          #
+          # Layout mirrors the hand-written v0.1.1 notes: a "What's new" body, the
+          # install section, then the compare link. The body is a placeholder here
+          # because it is written per release, after the draft exists; the install
+          # section deliberately just points at the README, which is the one place
+          # per-platform steps are kept up to date.
+          {
+            echo "## IPATool GUI ${TAG}"
+            echo
+            echo "<!-- What's new: replace this comment with the highlights for this release. -->"
+            echo
+            echo '### Install & macOS Gatekeeper note'
+            echo
+            echo 'See the [README](https://github.com/a23bc/ipatool-gui#install) for per-platform install steps and the one-line `xattr` fix if macOS says the app is damaged.'
+            echo
+            echo "$CHANGELOG"
+          } > /tmp/release-notes.md
           # -R is explicit on purpose: without it gh infers the repository from
           # the local git remote, which only exists because of the checkout above.
           # Relying on that is what made this step fail with
