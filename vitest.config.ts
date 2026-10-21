@@ -28,21 +28,37 @@ export default defineConfig({
       // Process entry points are glue (app lifecycle, window chrome) that
       // cannot be meaningfully unit-tested without booting Electron.
       exclude: ['src/main/index.ts', 'src/main/window.ts'],
+      // Floors are per-area, not one global average. A single number let the
+      // security boundary rot: the audit found src/main/ipc.ts at 0% while the
+      // aggregate sat comfortably above the gate. Each entry below is calibrated
+      // a little under the measured baseline, so ordinary refactoring passes and
+      // a real regression fails.
       thresholds: {
-        // Regression floors, calibrated just below the current baseline
-        // (shared ~87%, main partial): new code that drags a directory down
-        // fails the build. Ratchet these upward as main-process coverage grows
-        // toward the report's target (shared 90 / main 60+).
-        statements: 40,
-        branches: 40,
-        functions: 45,
-        lines: 40,
+        statements: 60,
+        branches: 70,
+        functions: 68,
+        lines: 60,
         // The pure shared layer is fully testable - hold it to a high bar.
         'src/shared/**': {
-          statements: 82,
-          branches: 78,
-          functions: 85,
-          lines: 82
+          statements: 90,
+          branches: 85,
+          functions: 90,
+          lines: 90
+        },
+        // The IPC surface is the documented trust boundary: path allow-list,
+        // raw-command allow-list, action validation.
+        'src/main/ipc.ts': {
+          statements: 38,
+          branches: 65,
+          functions: 30,
+          lines: 38
+        },
+        // Subprocess lifecycle: kill, timeout, spawn failure, line buffering.
+        'src/main/runner.ts': {
+          statements: 55,
+          branches: 60,
+          functions: 60,
+          lines: 55
         }
       }
     }
