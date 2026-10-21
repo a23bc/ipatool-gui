@@ -270,6 +270,13 @@ jobs:
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
     steps:
+      # Checkout FIRST, before the artifacts are downloaded. actions/checkout
+      # defaults to clean: true, which runs `git clean -ffdx` against the
+      # workspace - downloading the artifacts first meant that clean deleted
+      # them, and the next step failed with
+      # `ENOENT: no such file or directory, scandir 'artifacts'`.
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
@@ -277,10 +284,7 @@ jobs:
 
       # Each build job wrote its own SHA256SUMS.txt and merge-multiple flattens
       # them onto one path, so the manifest is rebuilt from the artifacts that are
-      # actually about to be published. Checked out only for scripts/, which keeps
-      # the checksum logic in one place instead of a second shell copy.
-      - uses: actions/checkout@v7
-
+      # actually about to be published. Needs the checkout for scripts/.
       - name: Merge checksum manifests
         run: node scripts/sha256sums.mjs artifacts
 
@@ -320,7 +324,13 @@ jobs:
 
           This release was created as a **draft** and is not public.
           EOF
+          # -R is explicit on purpose: without it gh infers the repository from
+          # the local git remote, which only exists because of the checkout above.
+          # Relying on that is what made this step fail with
+          # `failed to run git: fatal: not a git repository` before the checkout
+          # existed, and would fail again if the steps were ever reordered.
           gh release create "$TAG" \
+            -R "$GITHUB_REPOSITORY" \
             --title "IPATool GUI ${TAG}" \
             --draft \
             --notes-file /tmp/release-notes.md \
