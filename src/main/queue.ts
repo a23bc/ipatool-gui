@@ -458,13 +458,20 @@ export class DownloadQueue extends EventEmitter {
 
     const publish = (): void => {
       const received = Math.max(0, item.progress.received)
-      const parsedTotal = sample?.total ?? null
+
+      // A candidate total is only usable when it is both plausible *and* larger
+      // than what is already on disk. progressbar is created before ipatool
+      // calls ChangeMax64, and the parser can derive a total from a lone size
+      // plus a percentage - so on a resumed download a derived total can be
+      // smaller than the seeded byte count. Accepting it pinned the row at 100%
+      // with a 0 ETA for the rest of the transfer.
+      const candidates = [sample?.total ?? null, item.progress.total ?? null]
       const total =
-        parsedTotal && parsedTotal >= MIN_PLAUSIBLE_TOTAL
-          ? parsedTotal
-          : item.progress.total && item.progress.total >= MIN_PLAUSIBLE_TOTAL
-            ? item.progress.total
-            : null
+        candidates.find(
+          (value): value is number =>
+            typeof value === 'number' && value >= MIN_PLAUSIBLE_TOTAL && value > received
+        ) ?? null
+
       item.progress.received = received
       item.progress.total = total
       item.progress.percent =

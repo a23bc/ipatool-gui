@@ -612,6 +612,12 @@ export function applySettings(settings: Settings): void {
   nativeTheme.themeSource = settings.theme
   syncTitleBarOverlay(mainWindow())
   taskRegistry.setLineCap(settings.maxLogLines)
+  // The queue reads its limit from here rather than from the settings object at
+  // start time, so editing concurrency on the Settings page must reach it too -
+  // otherwise the value is persisted and echoed in the UI while the running pool
+  // keeps the old limit until the app restarts. setConcurrency is idempotent and
+  // re-pumps, so calling it on every change is safe.
+  downloadQueue.setConcurrency(settings.concurrency)
   broadcast('settings:changed', settings)
 }
 
