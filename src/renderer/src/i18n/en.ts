@@ -12,6 +12,9 @@ export const en = {
   'app.name': 'IPATool GUI',
   'app.tagline': 'A desktop front-end for ipatool',
 
+  'boot.failed.title': 'The app could not start',
+  'boot.failed.body':
+    'The interface failed to reach the background process. This is usually temporary — retry, and if it keeps happening, restart the app.',
   'common.ok': 'OK',
   'common.cancel': 'Cancel',
   'common.close': 'Close',

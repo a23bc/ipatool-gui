@@ -79,13 +79,27 @@ export function candidateDirs(): string[] {
   ]
 }
 
+/**
+ * True when `filePath` is a file this app is willing to execute as ipatool.
+ *
+ * `ipatoolPath` is user-editable *and* crosses the IPC boundary, so it must never
+ * be able to point the engine at an arbitrary program: only the exact binary
+ * name we install (or a directory containing it, resolved below) is accepted.
+ * Checking the name here - at the point where the decision to execute is made -
+ * keeps the guarantee independent of how the value reached settings.
+ */
+export function isIpatoolBinaryPath(filePath: string): boolean {
+  return path.basename(filePath) === binaryName()
+}
+
 /** True when a path exists and is executable by us. */
 export async function isExecutable(filePath: string): Promise<boolean> {
   try {
     await access(filePath, fsConstants.R_OK)
     if (isWindows()) {
-      // Windows has no executable bit; existence + a known extension is enough.
-      return true
+      // Windows has no executable bit. The runner spawns without a shell, so a
+      // .bat/.cmd would fail with EINVAL anyway; only a real PE binary can run.
+      return /\.exe$/i.test(filePath)
     }
     await access(filePath, fsConstants.X_OK)
     return true
@@ -141,19 +155,27 @@ export function expandUserPath(input: string): string {
  * @param override - user-configured path from settings (highest priority)
  */
 export async function resolveEngine(override?: string): Promise<ResolvedEngine | null> {
-  // 1. Explicit user override.
+  // 1. Explicit user override. Accept either a directory containing the binary
+  //    or the binary itself, but never a path whose basename is not ipatool:
+  //    the value is renderer-writable (settings:update), and whatever is
+  //    returned here is spawned.
   const expanded = override ? expandUserPath(override) : ''
   if (expanded) {
-    // Accept either a directory containing the binary or the binary itself.
     const asFile = expanded
     const asDir = path.join(expanded, binaryName())
-    if (await isExecutable(asFile)) return { path: asFile, source: 'settings' }
+    if (isIpatoolBinaryPath(asFile) && (await isExecutable(asFile))) {
+      return { path: asFile, source: 'settings' }
+    }
     if (await isExecutable(asDir)) return { path: asDir, source: 'settings' }
   }
 
-  // 2. Environment variable, for headless/CI setups and power users.
+  // 2. Environment variable, for headless/CI setups and power users. It is
+  //    operator-controlled (not renderer-reachable), but the same name check
+  //    applies so a stray variable cannot repoint the engine silently.
   const fromEnv = process.env.IPATOOL_PATH ? expandUserPath(process.env.IPATOOL_PATH) : ''
-  if (fromEnv && (await isExecutable(fromEnv))) return { path: fromEnv, source: 'env' }
+  if (fromEnv && isIpatoolBinaryPath(fromEnv) && (await isExecutable(fromEnv))) {
+    return { path: fromEnv, source: 'env' }
+  }
 
   // 3. Our own managed install - preferred over a stale system copy because we
   //    know its version and can update it.

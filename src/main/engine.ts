@@ -40,7 +40,16 @@ import {
   fetchTextWithFinalUrl,
   HttpError
 } from './http'
-import { isExecutable, isWindows, lookupOnPath, managedBinaryPath, managedDir, resolveEngine } from './paths'
+import {
+  expandUserPath,
+  isExecutable,
+  isIpatoolBinaryPath,
+  isWindows,
+  lookupOnPath,
+  managedBinaryPath,
+  managedDir,
+  resolveEngine
+} from './paths'
 import { run } from './runner'
 import { settingsStore } from './settings'
 
@@ -187,6 +196,18 @@ export class EngineManager extends EventEmitter {
       const resolved = await resolveEngine(override)
 
       if (!resolved) {
+        // A configured-but-rejected override is reported separately from "not
+        // installed": the user pointed the app at something that is not an
+        // ipatool binary, and silently falling back would hide that (and, before
+        // the name check existed, would have executed it).
+        if (override.trim() !== '' && !isIpatoolBinaryPath(expandUserPath(override))) {
+          return this.set(
+            status('error', {
+              message: `"${override}" is not an ipatool binary; refusing to run it`,
+              code: 'not-executable'
+            })
+          )
+        }
         return this.set(
           status('missing', {
             message: 'ipatool was not found on this machine',
@@ -362,15 +383,42 @@ export class EngineManager extends EventEmitter {
           throw new EngineError('No ipatool build for this platform', 'unsupported-arch')
         }
 
-        const { downloadUrl, checksumUrl, mirrored } = urls
+        const { assetName, downloadUrl, checksumUrl, mirrored } = urls
 
         // The checksum is fetched first so a missing sidecar fails fast and
         // loudly instead of after a 20 MB download.
-        let expectedHash: string | null = null
+        //
+        // This is a precondition, not an enrichment: the asset is a binary that
+        // gets chmod'd and executed, so "could not verify" must mean "do not
+        // install". The previous code set expectedHash = null on any failure and
+        // then skipped the comparison entirely, which turned a blocked mirror or
+        // a 404 on the sidecar into a silent supply-chain downgrade.
+        let expectedHash: string
         try {
-          expectedHash = parseSha256Sum(await fetchText(checksumUrl))?.hash ?? null
-        } catch {
-          expectedHash = null
+          const sidecar = parseSha256Sum(await fetchText(checksumUrl))
+          if (!sidecar) {
+            throw new EngineError(
+              `The checksum file for ${assetName} could not be read; refusing to install an unverified binary`,
+              'checksum-mismatch'
+            )
+          }
+          // The sidecar names the asset it belongs to. A body that verifies but
+          // describes a *different* file (e.g. another arch's archive) would let
+          // a mismatched pair pass, so the name is checked too.
+          if (sidecar.file !== '' && sidecar.file !== assetName) {
+            throw new EngineError(
+              `The checksum file describes "${sidecar.file}", not ${assetName}; refusing to install`,
+              'checksum-mismatch'
+            )
+          }
+          expectedHash = sidecar.hash
+        } catch (error) {
+          if (error instanceof EngineError) throw error
+          throw new EngineError(
+            `Could not fetch the checksum for ${assetName} (a mirror only proxies the binary, never the checksum): ` +
+              `${(error as Error).message}`,
+            'checksum-mismatch'
+          )
         }
 
         // Size is unknown until headers arrive; fetchBuffer reports it.
@@ -394,7 +442,7 @@ export class EngineManager extends EventEmitter {
         this.set(status('downloading', { download: { received: archive.byteLength, total, percent: 100, phase: 'verify' } }))
 
         const actualHash = createHash('sha256').update(archive).digest('hex')
-        if (expectedHash && expectedHash !== actualHash) {
+        if (expectedHash !== actualHash) {
           throw new EngineError(
             `Checksum mismatch: expected ${expectedHash.slice(0, 12)}…, got ${actualHash.slice(0, 12)}…`,
             'checksum-mismatch'
@@ -414,11 +462,9 @@ export class EngineManager extends EventEmitter {
             message:
               resolved.source === 'fallback'
                 ? `GitHub could not be queried; installed the last known good version ${tag}`
-                : !expectedHash
-                  ? 'Installed without checksum verification (sidecar unavailable)'
-                  : mirrored
-                    ? 'Downloaded via the configured GitHub mirror; checksum verified against github.com'
-                    : null
+                : mirrored
+                  ? 'Downloaded via the configured GitHub mirror; checksum verified against github.com'
+                  : null
           })
         )
       } catch (error) {

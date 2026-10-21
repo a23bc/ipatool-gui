@@ -247,3 +247,63 @@ describe('parseTar base-256 sizes', () => {
     expect(Buffer.from(parsed[0]!.data!).toString('utf8')).toBe('hello')
   })
 })
+
+describe('parseTar header integrity (audit P1-4 / P2-5)', () => {
+  /** Fills in the ustar checksum field (offset 148) for a header block. */
+  function seal(block: Uint8Array): Uint8Array {
+    for (let i = 148; i < 156; i += 1) block[i] = 0x20
+    let sum = 0
+    for (let i = 0; i < 512; i += 1) sum += block[i] ?? 0
+    const octal = sum.toString(8).padStart(6, '0') + '\0 '
+    for (let i = 0; i < 8; i += 1) block[148 + i] = octal.charCodeAt(i)
+    return block
+  }
+
+  it('rejects a header whose checksum does not match its contents', () => {
+    const block = makeHeader('bin/ipatool', 0, '0')
+    seal(block)
+    // Flip a byte in the size field: the stored checksum no longer describes it.
+    block[124] = 0x31
+    expect(() => parseTar(concat(block, END_BLOCKS))).toThrow(/checksum mismatch/i)
+  })
+
+  it('still accepts a header that carries a correct checksum', () => {
+    const block = seal(makeHeader('bin/ipatool', 0, '0'))
+    const parsed = parseTar(concat(block, END_BLOCKS))
+    expect(parsed.map((e) => e.name)).toEqual(['bin/ipatool'])
+  })
+
+  it('keeps accepting headers with no checksum field at all', () => {
+    // Older writers left the field blank; makeHeader does exactly that, and the
+    // rest of this suite depends on it.
+    const parsed = parseTar(concat(makeHeader('legacy.txt', 0, '0'), END_BLOCKS))
+    expect(parsed.map((e) => e.name)).toEqual(['legacy.txt'])
+  })
+
+  it('refuses a negative base-256 size instead of looping forever', () => {
+    // The exact value the audit used to hang the main process: -2^43, which is
+    // exactly representable, so `padded` is negative and the offset walks back.
+    const block = makeHeader('bin/ipatool', 0, '0')
+    const target = 2 ** 96 - 2 ** 43
+    let rest = target
+    for (let i = 11; i >= 0; i -= 1) {
+      block[124 + i] = rest % 256
+      rest = Math.floor(rest / 256)
+    }
+    seal(block)
+
+    const started = Date.now()
+    expect(() => parseTar(concat(block, END_BLOCKS))).toThrow(/implausible entry size/i)
+    // Guards against a regression to the hang: the throw must be immediate.
+    expect(Date.now() - started).toBeLessThan(1000)
+  })
+
+  it('refuses an entry size larger than the archive', () => {
+    const block = seal(makeHeader('huge.bin', 0, '0'))
+    // Claim ~8 GB in the octal size field, then seal it.
+    const octal = (8 * 1024 * 1024 * 1024).toString(8).padStart(11, '0') + '\0'
+    for (let i = 0; i < 12; i += 1) block[124 + i] = octal.charCodeAt(i)
+    seal(block)
+    expect(() => parseTar(concat(block, END_BLOCKS))).toThrow(/implausible entry size/i)
+  })
+})

@@ -91,6 +91,38 @@ function readNumber(buffer: Uint8Array, offset: number, length: number): number 
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+/**
+ * Verifies the ustar header checksum (offset 148, 8 bytes).
+ *
+ * The checksum is the only integrity field the format provides: it is the sum of
+ * all 512 header bytes with the checksum field itself read as spaces. Without
+ * this check a corrupted size field is taken at face value, which either drops
+ * the rest of the archive silently or - for a negative base-256 value - makes
+ * the loop below walk backwards forever.
+ *
+ * A header of all zeroes is the end-of-archive marker and is handled before this
+ * is called. A header with no checksum at all (some ancient writers) is treated
+ * as valid only when the stored field is empty, so real-world archives keep
+ * working while a mangled one is refused.
+ */
+function hasValidChecksum(header: Uint8Array): boolean {
+  const stored = readString(header, 148, 8).trim()
+  if (stored === '') return true
+  const expected = Number.parseInt(stored, 8)
+  if (!Number.isFinite(expected)) return false
+
+  let unsigned = 0
+  let signed = 0
+  for (let i = 0; i < BLOCK; i += 1) {
+    // The checksum field is treated as 8 spaces while summing.
+    const byte = i >= 148 && i < 156 ? 0x20 : (header[i] ?? 0)
+    unsigned += byte
+    // Some historical writers summed signed bytes; accept either convention.
+    signed += byte > 127 ? byte - 256 : byte
+  }
+  return expected === unsigned || expected === signed
+}
+
 function isZeroBlock(buffer: Uint8Array, offset: number): boolean {
   for (let i = offset; i < offset + BLOCK; i += 1) {
     if (buffer[i] !== 0) return false
@@ -163,6 +195,12 @@ export function parseTar(input: Uint8Array): TarEntry[] {
     zeroBlocks = 0
 
     const header = input.subarray(offset, offset + BLOCK)
+    // A header whose checksum does not match is not a header: trusting its size
+    // field is how a corrupt archive hangs the parser (see hasValidChecksum).
+    if (!hasValidChecksum(header)) {
+      throw new Error(`tar: header checksum mismatch at offset ${offset}`)
+    }
+
     const rawName = readString(header, 0, 100)
     const mode = readNumber(header, 100, 8)
     const size = readNumber(header, 124, 12)
@@ -172,10 +210,21 @@ export function parseTar(input: Uint8Array): TarEntry[] {
     const magic = readString(header, 257, 6)
     const prefix = magic.startsWith('ustar') ? readString(header, 345, 155) : ''
 
+    // GNU base-256 can encode a negative number; a negative or absurd size is
+    // never legitimate and would make the offset walk backwards.
+    if (!Number.isFinite(size) || size < 0 || size > input.length) {
+      throw new Error(`tar: implausible entry size ${size} at offset ${offset}`)
+    }
+
     const dataOffset = offset + BLOCK
     const data = size > 0 ? input.subarray(dataOffset, dataOffset + size) : new Uint8Array(0)
     const padded = Math.ceil(size / BLOCK) * BLOCK
-    offset = dataOffset + padded
+    const next = dataOffset + padded
+    // The loop must always make progress, whatever the header claimed.
+    if (next <= offset) {
+      throw new Error(`tar: entry at offset ${offset} does not advance the stream`)
+    }
+    offset = next
 
     const flagChar = String.fromCharCode(typeFlag)
 
