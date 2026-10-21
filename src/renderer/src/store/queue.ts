@@ -34,6 +34,8 @@ export interface QueueState {
   initialised: boolean
 
   init: () => Promise<void>
+  /** Installs the IPC listeners; idempotent, called from init(). */
+  registerSubscriptions: () => void
   enqueue: (requests: DownloadRequest[]) => Promise<string[]>
   control: (id: string, action: QueueAction) => Promise<void>
   clearFinished: () => Promise<void>
@@ -63,6 +65,15 @@ export const useQueueStore = create<QueueState>()((set, get) => ({
   initialised: false,
 
   async init() {
+    // Subscribe BEFORE the first round-trip. The previous order awaited
+    // getQueue() first, so a single failure there skipped subscription
+    // registration entirely - and because init() was never retried, the view
+    // stayed permanently out of sync with a main process that kept downloading.
+    if (!subscriptionsActive) {
+      subscriptionsActive = true
+      this.registerSubscriptions()
+    }
+
     const snapshot = await window.api.getQueue()
     set({
       items: snapshot.items,
@@ -71,9 +82,10 @@ export const useQueueStore = create<QueueState>()((set, get) => ({
       active: snapshot.active,
       initialised: true
     })
+  },
 
-    if (subscriptionsActive) return
-    subscriptionsActive = true
+  /** Installs the queue's IPC listeners exactly once. */
+  registerSubscriptions() {
 
     disposers.push(window.api.on('queue:snapshot', (next) => {
       const merged = mergeSnapshot(get().items, next.items)
