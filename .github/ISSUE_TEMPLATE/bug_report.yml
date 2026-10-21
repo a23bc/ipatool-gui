@@ -1,0 +1,109 @@
+name: Bug report
+description: Something in IPATool GUI does not work as expected
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. A screenshot helps, but a screenshot
+        alone usually cannot be acted on: the same dialog can come from the app, from
+        macOS, or from the `ipatool` CLI running underneath. The fields below are what
+        makes a report actionable.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability (those go through the Security tab, see below).
+          required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Settings → About in the app, or the installer filename.
+      placeholder: "0.1.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux (AppImage)
+        - Linux (deb)
+        - Other / building from source
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      description: e.g. "Windows 11 23H2", "macOS 14.5", "Ubuntu 22.04".
+      placeholder: "macOS 14.5"
+    validations:
+      required: true
+
+  - type: input
+    id: ipatool-version
+    attributes:
+      label: ipatool engine version
+      description: |
+        Shown in Settings → Engine, or from `ipatool --version`. The engine is downloaded
+        separately from the app, so this is often where a problem lives.
+      placeholder: "2.6.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead. Exact error text is more useful than a description of it.
+      placeholder: |
+        1. Opened the app, clicked "Sign in"
+        2. Typed my Apple ID and password, clicked "Sign in"
+        3. A macOS "Keychain Not Found" alert appeared: A keychain cannot be found to store "account".
+        4. Expected: sign-in completes and the app shows my account.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Does it happen every time?
+      options:
+        - Every time
+        - Only the first time after launching
+        - Intermittently
+        - Only happened once
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Activity → **Export logs** in the app, then attach the file (drag it into this box).
+        Credentials and tokens are redacted automatically, but give it a quick skim before posting.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Proxy/VPN, a recently migrated or reset keychain, antivirus, unusual locale — anything that might be relevant.
+    validations:
+      required: false
