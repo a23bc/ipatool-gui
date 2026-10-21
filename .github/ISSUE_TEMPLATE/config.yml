@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/a23bc/ipatool-gui/security
+    about: Please report vulnerabilities privately through the Security tab, not as a public issue.
+  - name: Build, test and release details
+    url: https://github.com/a23bc/ipatool-gui/blob/main/docs/architecture.md
+    about: Architecture, the security model, packaging and CI are documented here.
+  - name: Install / Gatekeeper / SmartScreen problems
+    url: https://github.com/a23bc/ipatool-gui#install
+    about: The README covers the "damaged" Gatekeeper warning and the SmartScreen prompt.

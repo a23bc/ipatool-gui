@@ -25,9 +25,6 @@ coverage/
 *.tsbuildinfo
 .vitest-cache/
 
-# Local assistant workspace (never part of a build)
-.workbuddy/
-
 # Local environment
 .env
 .env.*
