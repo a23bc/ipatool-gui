@@ -200,11 +200,20 @@ export function startProcess(binary: string, options: RunOptions): RunningProces
     for (const line of lines) options.onLine(scrub(line.text), stream, line.progress)
   }
 
+  /** True while the child has not reported an exit yet. */
+  const stillRunning = (target: ReturnType<typeof spawn> | null): boolean =>
+    target !== null && target.exitCode === null && target.signalCode === null
+
   const killTree = (hard = false): void => {
     if (!child || child.pid === undefined) return
-    // `child.killed` only means a signal was already delivered, not that the
-    // process exited; a hard kill must still escalate to SIGKILL/taskkill.
-    if (child.killed && !hard) return
+    // `child.killed` is set by ChildProcess.kill() the moment a signal is *sent*,
+    // not when the process exits - so testing it made the SIGKILL escalation
+    // below dead code and could leave a SIGTERM-ignoring ipatool running after a
+    // pause. exitCode/signalCode are the real liveness signal.
+    if (!stillRunning(child)) return
+    // Captured for the escalation timer: `child` is reassigned inside the
+    // promise below, so a closure reading it directly loses the narrowing.
+    const target = child
     killed = true
     if (isWindows()) {
       execFile(
@@ -244,7 +253,7 @@ export function startProcess(binary: string, options: RunOptions): RunningProces
       escalateTimer = setTimeout(() => {
         escalateTimer = null
         try {
-          if (child && !child.killed) child.kill('SIGKILL')
+          if (stillRunning(target)) target.kill('SIGKILL')
         } catch {
           /* ignore */
         }
