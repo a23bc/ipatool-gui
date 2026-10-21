@@ -28,6 +28,7 @@ import { mkdir, rename, rm, writeFile, chmod } from 'node:fs/promises'
 import { app } from 'electron'
 import type { EngineDownloadProgress, EngineErrorCode, EngineRelease, EngineStatus, EngineUpdateCheck } from '../shared/types'
 import { compareSemver } from '../shared/semver'
+import { safeVersionString } from '../shared/validate'
 import { parseSha256Sum, parseVersion } from '../shared/ipatool/parse'
 import { findTarFile, parseTar } from '../shared/tar'
 import {
@@ -448,10 +449,14 @@ export class EngineManager extends EventEmitter {
    *   4. the built-in last-known-good version.
    */
   private async resolveVersion(version: string): Promise<{ version: string; source: string }> {
-    const explicit = version.trim().replace(/^v/, '')
+    // Both inputs can originate outside the app's control (a renderer-supplied
+    // install version, or a hand-edited settings.json), and the result is used
+    // both in a release URL and in a temp file name - so an unsafe shape is
+    // discarded rather than propagated.
+    const explicit = safeVersionString(version.trim().replace(/^v/, ''))
     if (explicit !== '') return { version: explicit, source: 'explicit' }
 
-    const pinned = settingsStore.getInternal().engineVersion.trim().replace(/^v/, '')
+    const pinned = safeVersionString(settingsStore.getInternal().engineVersion.trim().replace(/^v/, ''))
     if (pinned !== '') return { version: pinned, source: 'pinned' }
 
     const discovered = await this.discoverLatest()
@@ -538,7 +543,11 @@ export class EngineManager extends EventEmitter {
     const dir = managedDir()
     await mkdir(dir, { recursive: true })
     const target = managedBinaryPath()
-    const tmp = `${target}.${tag}.${process.pid}.tmp`
+    // `tag` reaches this point from a release lookup or an explicit request, and
+    // it becomes part of a file name next to the managed binary: sanitise it so a
+    // separator or `..` can never move the temp file out of `bin/`.
+    const safeTag = tag.replace(/[^0-9A-Za-z.-]/g, '_')
+    const tmp = `${target}.${safeTag}.${process.pid}.tmp`
 
     await writeFile(tmp, entry.data)
     if (!isWindows()) await chmod(tmp, 0o755)

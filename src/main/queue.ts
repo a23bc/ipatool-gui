@@ -27,6 +27,8 @@ import type { DownloadRequest, Platform, ProgressEvent, QueueItem, QueueSnapshot
 import { RateEstimator } from '../shared/format'
 import { mergeProgress, type ProgressSample } from '../shared/ipatool/parse'
 import { classifyError, shorten } from '../shared/ipatool/errors'
+import { isInsideRoot } from '../shared/validate'
+import { expandUserPath } from './paths'
 import { ApiError, ipatoolApi } from './api'
 import { accounts } from './accounts'
 import { settingsStore } from './settings'
@@ -193,7 +195,12 @@ export class DownloadQueue extends EventEmitter {
 
       const platform = (request.platform ?? settings.defaultPlatform ?? '') as Platform
       const externalVersionID = String(request.externalVersionID ?? '')
-      const outputDir = request.outputDir?.trim() || settings.downloadDir
+      // The destination is renderer-supplied and is used for `mkdir -p`, as the
+      // child process cwd and as `ipatool -o`, so it is confined to the
+      // configured download directory. A request outside it falls back to the
+      // default rather than creating directories anywhere on disk.
+      const requestedDir = request.outputDir?.trim() || ''
+      const outputDir = requestedDir === '' ? settings.downloadDir : this.confineOutputDir(requestedDir, settings.downloadDir)
       // Pin the account now, not at start time: the user may switch accounts
       // while the item is queued, and the download - and any purchase it triggers
       // - has to happen on the account that was selected when it was added.
@@ -295,6 +302,21 @@ export class DownloadQueue extends EventEmitter {
         break
     }
     this.persist()
+  }
+
+  /**
+   * Keeps a requested download destination inside the configured download dir.
+   *
+   * `outputDir` comes from the renderer and is later used for `mkdir -p`, as the
+   * child process cwd and as `ipatool -o`, so an out-of-tree value would let a
+   * compromised renderer write anywhere. Out-of-tree requests degrade to the
+   * default directory instead of failing the whole enqueue: the user still gets
+   * their download, just in the place the app owns.
+   */
+  private confineOutputDir(requested: string, downloadDir: string): string {
+    const base = path.resolve(expandUserPath(downloadDir))
+    const candidate = path.resolve(expandUserPath(requested))
+    return isInsideRoot(candidate, base, process.platform === 'win32') ? candidate : base
   }
 
   private reorder(id: string, delta: number): void {

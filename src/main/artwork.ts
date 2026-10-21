@@ -14,6 +14,7 @@
 import { mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
+import { safeCountryCode } from '../shared/validate'
 import { fetchJson } from './http'
 import { settingsStore } from './settings'
 
@@ -48,7 +49,10 @@ export class ArtworkCache {
   }
 
   private key(appId: number, country: string): string {
-    return `${appId}_${country.toLowerCase()}`
+    // `country` arrives from the renderer and becomes a file name, so it is
+    // normalised to a two-letter code here as well as at the IPC edge: a
+    // traversal segment must never reach path.join.
+    return `${appId}_${safeCountryCode(country)}`
   }
 
   private diskPath(key: string): string {
@@ -70,7 +74,7 @@ export class ArtworkCache {
     if (!settingsStore.getInternal().artworkEnabled) return null
     if (!Number.isFinite(appId) || appId <= 0) return null
 
-    const cc = (country ?? settingsStore.getInternal().artworkCountry ?? 'us').toLowerCase()
+    const cc = safeCountryCode(country ?? settingsStore.getInternal().artworkCountry)
     const cacheKey = this.key(appId, cc)
 
     if (this.memory.has(cacheKey)) return this.memory.get(cacheKey) ?? null
