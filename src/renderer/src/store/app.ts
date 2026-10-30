@@ -150,7 +150,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     githubMirror: '',
     downloadDir: '',
     concurrency: 2,
-    autoPurchase: true,
+    autoPurchase: false,
     defaultPlatform: '',
     searchLimit: 25,
     purchasesPageSize: 50,

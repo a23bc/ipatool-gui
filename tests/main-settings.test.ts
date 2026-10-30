@@ -59,6 +59,8 @@ describe('defaultSettings', () => {
     // The home sandbox is what makes the per-account state directory
     // authoritative, so it has to be on unless the user turns it off.
     expect(settings.isolateSessionHome).toBe(true)
+    // Obtaining a licence is a visible account action; opt in, do not default to it.
+    expect(settings.autoPurchase).toBe(false)
     expect(defaultSettings().downloadDir).toContain('ipatool')
   })
 })
