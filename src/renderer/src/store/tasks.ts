@@ -57,7 +57,9 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
     // stopped updating while the main process kept logging.
     if (!subscriptionsActive) {
       subscriptionsActive = true
-      this.registerSubscriptions()
+      // `get()`, not `this`: React components select `init` and call it as a
+      // bare function, where `this` is undefined.
+      get().registerSubscriptions()
     }
 
     const tasks = await window.api.listTasks()

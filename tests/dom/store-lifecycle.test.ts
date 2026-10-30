@@ -119,6 +119,25 @@ describe('tasks store subscription ordering (audit P2-11)', () => {
   })
 })
 
+describe('init works when called detached from the store object', () => {
+  // App.tsx selects `state.init` and calls it as a bare function, so `this` is
+  // undefined inside the action. An implementation that used `this` to reach its
+  // own methods threw here, leaving both stores permanently unsubscribed.
+  it('queue init does not depend on `this`', async () => {
+    const init = useQueueStore.getState().init
+    await init()
+    expect(useQueueStore.getState().initialised).toBe(true)
+    expect(listenerCount('queue:snapshot')).toBe(1)
+  })
+
+  it('tasks init does not depend on `this`', async () => {
+    const init = useTasksStore.getState().init
+    await init()
+    expect(useTasksStore.getState().initialised).toBe(true)
+    expect(listenerCount('task:log')).toBe(1)
+  })
+})
+
 describe('dispose functions (audit P2-14)', () => {
   it('detach the listeners and allow a clean re-init', async () => {
     await useQueueStore.getState().init()

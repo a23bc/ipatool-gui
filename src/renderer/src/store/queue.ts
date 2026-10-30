@@ -71,7 +71,9 @@ export const useQueueStore = create<QueueState>()((set, get) => ({
     // stayed permanently out of sync with a main process that kept downloading.
     if (!subscriptionsActive) {
       subscriptionsActive = true
-      this.registerSubscriptions()
+      // `get()`, not `this`: React components select `init` and call it as a
+      // bare function, where `this` is undefined.
+      get().registerSubscriptions()
     }
 
     const snapshot = await window.api.getQueue()
