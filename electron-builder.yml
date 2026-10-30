@@ -43,13 +43,13 @@ buildDependenciesFromSource: false
 
 win:
   icon: build/icon.png
-  # NOTE: no platform-level `artifactName` here on purpose. A single pattern is
-  # inherited by *both* Windows targets below, so nsis and portable would expand
-  # to the same `<name>-<version>-win-<arch>.exe` and race for one output path -
-  # the release would then contain only one of the two artifacts the docs
-  # promise. Each target names itself instead (see `nsis.artifactName` and
-  # `portable.artifactName`), which is also what electron-builder's own defaults
-  # do via installerFilenamePattern().
+  # The platform-level pattern is the fallback for targets that cannot name
+  # themselves. `zip` is an ArchiveTarget with no root config section in the
+  # schema (`config.zip` is rejected as an unknown property), so it inherits
+  # this name. nsis and portable override it explicitly below: a shared pattern
+  # would expand them to the same `<name>-<version>-win-<arch>.exe` and race
+  # for one output path, leaving only one of the two artifacts the docs promise.
+  artifactName: ${name}-${version}-win-${arch}-portable.${ext}
   # Unsigned by default. Forks with a code-signing certificate can enable it
   # WITHOUT editing this file by exporting:
   #   WIN_CSC_LINK (or CSC_LINK) = path/base64 of the .pfx
@@ -64,6 +64,11 @@ win:
     - target: nsis
       arch: [x64]
     - target: portable
+      arch: [x64]
+    # Same unpacked app as `portable`, wrapped in zip instead of a self-extracting
+    # exe. No install and no extraction to a temp dir on launch, which is what
+    # people want for a truly portable copy; `Expand-Archive`/unzip is enough.
+    - target: zip
       arch: [x64]
 nsis:
   artifactName: ${name}-${version}-win-${arch}-setup.${ext}

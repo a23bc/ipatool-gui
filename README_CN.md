@@ -99,7 +99,7 @@ npm run typecheck && npm test && npm run lint
 打包：
 
 ```bash
-npm run dist:win     # Windows NSIS + portable
+npm run dist:win     # Windows NSIS + portable exe + portable zip
 npm run dist:mac     # macOS（未签名）
 npm run dist:linux   # AppImage + deb
 ```
@@ -122,7 +122,7 @@ npm run dist:linux   # AppImage + deb
 - **多账户真正隔离**：每个账户独立的 ipatool 会话目录 + HOME 沙箱，切换不串号。
 - **暂停 = 真暂停**：利用 ipatool 的 HTTP Range 续传，不是取消重来。
 - **凭据不落明文**：系统钥匙串 / safeStorage 加密；不可用时拒绝保存而不是写明文。
-- **不自动更新**：未签名的 auto-update 通道有安全风险，更新只做提示。
+- **不静默自动更新**：可在启动时检查新版本，但只弹提示并打开下载页；未签名二进制永远不会被自动下载或安装。
 
 ---
 
