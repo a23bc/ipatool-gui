@@ -38,7 +38,7 @@ export function defaultSettings(): Settings {
     githubMirror: '',
     downloadDir: defaultDownloadDir(),
     concurrency: 2,
-    autoPurchase: true,
+    autoPurchase: false,
     defaultPlatform: '',
     searchLimit: 25,
     purchasesPageSize: 50,
