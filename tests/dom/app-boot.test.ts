@@ -10,13 +10,23 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AccountsSnapshot, AppInfoPayload, EngineStatus, Settings } from '@shared/types'
+import type { AccountsSnapshot, AppInfoPayload, EngineStatus, Settings, UpdateCheckResult } from '@shared/types'
 
 type Listener = (payload: unknown) => void
 
 const state = vi.hoisted(() => ({
   listeners: new Set<Listener>(),
-  failBoot: true
+  failBoot: true,
+  autoCheckUpdates: true,
+  updateCalls: 0,
+  updateResult: {
+    current: '0.2.0',
+    latest: null,
+    hasUpdate: false,
+    url: null,
+    publishedAt: null,
+    error: null
+  } as UpdateCheckResult
 }))
 
 const APP_INFO: AppInfoPayload = {
@@ -38,7 +48,7 @@ const SETTINGS = {
   isolateSessionHome: true, accounts: [], activeAccountId: '', accountCounter: 1,
   verbose: false, theme: 'system', locale: 'system', artworkEnabled: true,
   artworkCountry: 'us', maxLogLines: 2000, resumeQueueOnLaunch: true,
-  notifyOnComplete: true, confirmCloseWhileDownloading: false, lastEmail: ''
+  notifyOnComplete: true, autoCheckUpdates: true, confirmCloseWhileDownloading: false, lastEmail: ''
 } as unknown as Settings
 
 const ENGINE: EngineStatus = {
@@ -56,10 +66,14 @@ const api = {
     if (state.failBoot) throw new Error('ipc not ready')
     return APP_INFO
   },
-  getSettings: async (): Promise<Settings> => SETTINGS,
+  getSettings: async (): Promise<Settings> => ({ ...SETTINGS, autoCheckUpdates: state.autoCheckUpdates }),
   getEngineStatus: async (): Promise<EngineStatus> => ENGINE,
   getAccounts: async (): Promise<AccountsSnapshot> => ACCOUNTS,
   detectEngine: async (): Promise<EngineStatus> => ENGINE,
+  checkAppUpdate: async (): Promise<UpdateCheckResult> => {
+    state.updateCalls += 1
+    return state.updateResult
+  },
   on: (_channel: string, listener: Listener): (() => void) => {
     state.listeners.add(listener)
     return () => state.listeners.delete(listener)
@@ -83,8 +97,18 @@ import { disposeAppStore, useAppStore } from '@renderer/store/app'
 beforeEach(() => {
   disposeAppStore()
   state.failBoot = true
+  state.autoCheckUpdates = true
+  state.updateCalls = 0
+  state.updateResult = {
+    current: '0.2.0',
+    latest: null,
+    hasUpdate: false,
+    url: null,
+    publishedAt: null,
+    error: null
+  }
   state.listeners.clear()
-  useAppStore.setState({ ready: false, bootError: null })
+  useAppStore.setState({ ready: false, bootError: null, appUpdate: null })
 })
 
 describe('app store boot failure (audit P1-5)', () => {
@@ -125,5 +149,37 @@ describe('app store boot failure (audit P1-5)', () => {
     // init() is idempotent once it succeeded.
     await useAppStore.getState().init()
     expect(state.listeners.size).toBe(first)
+  })
+})
+
+describe('app self-update check', () => {
+  it('checks once on launch and records a newer release', async () => {
+    state.failBoot = false
+    state.updateResult = {
+      current: '0.2.0',
+      latest: '0.3.0',
+      hasUpdate: true,
+      url: 'https://github.com/a23bc/ipatool-gui/releases/tag/v0.3.0',
+      publishedAt: null,
+      error: null
+    }
+
+    await useAppStore.getState().init()
+
+    await vi.waitFor(() => {
+      expect(useAppStore.getState().appUpdate?.latest).toBe('0.3.0')
+    })
+    expect(state.updateCalls).toBe(1)
+  })
+
+  it('does not call GitHub when the launch check is disabled', async () => {
+    state.failBoot = false
+    state.autoCheckUpdates = false
+
+    await useAppStore.getState().init()
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(state.updateCalls).toBe(0)
+    expect(useAppStore.getState().appUpdate).toBeNull()
   })
 })

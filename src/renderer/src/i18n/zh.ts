@@ -76,6 +76,7 @@ export const zh: Dict = {
   'statusbar.ready': '就绪',
   'statusbar.active': '{n} 个进行中',
   'statusbar.idle': '空闲',
+  'statusbar.update': '可更新 {version}',
 
   /* ---------------- engine ---------------- */
   'engine.state.idle': '未初始化',
@@ -412,6 +413,8 @@ export const zh: Dict = {
   'settings.about.platform': '平台',
   'settings.about.upstream': 'ipatool 上游',
   'settings.about.checkUpdate': '检查更新',
+  'settings.about.autoCheck': '启动时检查更新',
+  'settings.about.autoCheckHelp': '只向 GitHub 查询最新版本号，不会自动下载；确认后打开 Releases 页面。',
   'settings.about.updateAvailable': '有新版本 {version}',
   'settings.about.updateLatest': '已经是最新版本',
   'settings.about.updateNone': '当前构建未配置更新检查',
