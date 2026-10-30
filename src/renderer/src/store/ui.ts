@@ -77,15 +77,35 @@ export interface UiState {
 
 let toastId = 0
 const timers = new Map<number, ReturnType<typeof setTimeout>>()
+let modalHolds = 0
 
 /** OS caption buttons sit above our scrim; dim them while any modal is up. */
 function syncChromeDimmed(get: () => UiState): void {
   const state = get()
-  const dimmed = state.paletteOpen || state.authOpen || state.confirm !== null
+  const dimmed = modalHolds > 0 || state.paletteOpen || state.authOpen || state.confirm !== null
   try {
     window.api.setChromeDimmed(dimmed)
   } catch {
     /* preview / tests without a preload bridge */
+  }
+}
+
+/**
+ * Keeps the caption-button strip dimmed while a Modal is mounted.
+ *
+ * Reference-counted rather than a boolean: dialogs can stack (a confirm over
+ * the account manager), and the inner one closing must not un-dim the strip
+ * while the outer scrim is still there.
+ */
+export function holdModalChrome(): () => void {
+  modalHolds += 1
+  syncChromeDimmed(useUiStore.getState)
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    modalHolds -= 1
+    syncChromeDimmed(useUiStore.getState)
   }
 }
 

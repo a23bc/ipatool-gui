@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { holdModalChrome } from '@renderer/store/ui'
 import { Icon } from './Icon'
 
 export interface ModalProps {
@@ -86,6 +87,13 @@ export function Modal({
       previous?.focus?.()
     }
     // Deliberately only `open`: this must run once per open, not per render.
+  }, [open])
+
+  // The OS caption buttons are drawn above the page, so they need an explicit
+  // signal to let the modal scrim show through their strip.
+  useEffect(() => {
+    if (!open) return
+    return holdModalChrome()
   }, [open])
 
   if (!open) return null
