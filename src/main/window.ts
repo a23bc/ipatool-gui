@@ -115,17 +115,11 @@ export function syncTitleBarOverlay(win: BrowserWindow | null, modal = false): v
   if (!win || process.platform !== 'win32') return
   try {
     const dark = nativeTheme.shouldUseDarkColors
-    // Modal scrim is a dark blur over the page. The OS caption buttons are
-    // drawn above it - we cannot blur them, so instead we paint their
-    // background to match the scrim and leave the glyphs at normal contrast
-    // (blurring/dimming the icons would make them hard to hit).
-    const color = modal
-      ? dark
-        ? '#1a1a22'
-        : '#4a4a55'
-      : dark
-        ? '#101014'
-        : '#ffffff'
+    // Modal scrim is a dark blur over the whole page, including the strip the
+    // OS caption buttons sit on. A painted overlay color cannot show that blur,
+    // so the strip stays transparent while a modal is open and lets the scrim
+    // through; glyphs stay bright because the scrim is dark on both themes.
+    const color = modal ? 'rgba(0, 0, 0, 0)' : dark ? '#101014' : '#ffffff'
     const symbolColor = modal
       ? dark
         ? '#e8e8ef'
