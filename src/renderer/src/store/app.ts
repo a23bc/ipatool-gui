@@ -13,7 +13,8 @@ import type {
   AppInfoPayload,
   EngineStatus,
   Settings,
-  ThemeMode
+  ThemeMode,
+  UpdateCheckResult
 } from '@shared/types'
 import { createTranslator, detectLocale, type Locale, type Translator } from '@renderer/i18n'
 import { useUiStore } from './ui'
@@ -44,6 +45,8 @@ export interface AppState {
   engine: EngineStatus
   /** Newest ipatool release vs installed, when the main process checked. */
   engineUpdate: { latest: string | null; hasUpdate: boolean } | null
+  /** Result of the last app self-update check (automatic or manual). */
+  appUpdate: UpdateCheckResult | null
   /** Account to restore if add-account sign-in is cancelled. */
   pendingAddRestoreId: string | null
   /** Every registered account, plus the platform's credential-slot capability. */
@@ -63,6 +66,8 @@ export interface AppState {
   bootError: string | null
 
   init: () => Promise<void>
+  /** Checks GitHub for a newer release; `silent` hides "up to date" and errors. */
+  checkForUpdate: (options?: { silent?: boolean }) => Promise<UpdateCheckResult | null>
   updateSettings: (patch: Partial<Settings>) => Promise<void>
   resetSettings: () => Promise<void>
   detectEngine: (force?: boolean) => Promise<EngineStatus>
@@ -163,11 +168,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
     maxLogLines: 2000,
     resumeQueueOnLaunch: true,
     notifyOnComplete: true,
+    autoCheckUpdates: true,
     confirmCloseWhileDownloading: true,
     lastEmail: ''
   },
   engine: IDLE_ENGINE,
   engineUpdate: null,
+  appUpdate: null,
   pendingAddRestoreId: null,
   accounts: EMPTY_ACCOUNTS,
   account: null,
@@ -274,6 +281,69 @@ export const useAppStore = create<AppState>()((set, get) => ({
     // The main process resolves/downloads the engine after first paint; make
     // sure we show its latest state even if the events raced the subscription.
     void api.detectEngine(false).then((latest) => set({ engine: latest }))
+
+    // Self-check on launch. Silent about "already up to date" and about network
+    // failures; when a newer release exists the user still gets a toast.
+    if (settings.autoCheckUpdates) {
+      void get().checkForUpdate({ silent: true })
+    }
+  },
+
+  async checkForUpdate(options) {
+    const silent = options?.silent === true
+    const toast = useUiStore.getState().toast
+
+    let result: UpdateCheckResult
+    try {
+      result = await window.api.checkAppUpdate()
+    } catch (error) {
+      if (!silent) {
+        toast({
+          kind: 'error',
+          message: get().t('settings.about.updateFailed'),
+          detail: error instanceof Error ? error.message : String(error)
+        })
+      }
+      return null
+    }
+
+    set({ appUpdate: result })
+
+    if (result.error) {
+      if (!silent) {
+        if (result.error === 'update-check-not-configured') {
+          toast({ kind: 'info', message: get().t('settings.about.updateNone') })
+        } else {
+          toast({
+            kind: 'error',
+            message: get().t('settings.about.updateFailed'),
+            detail: result.error
+          })
+        }
+      }
+      return result
+    }
+
+    if (result.hasUpdate && result.latest) {
+      const url = result.url
+      toast({
+        kind: 'success',
+        message: get().t('settings.about.updateAvailable', { version: result.latest }),
+        // Long enough to actually click: the launch check fires while the user
+        // is still looking at the window, and 4s is easy to miss entirely.
+        duration: 15_000,
+        ...(url
+          ? {
+              actionLabel: get().t('common.open'),
+              onAction: () => void window.api.openExternal(url)
+            }
+          : {})
+      })
+    } else if (!silent) {
+      toast({ kind: 'info', message: get().t('settings.about.updateLatest') })
+    }
+
+    return result
   },
 
   async updateSettings(patch) {

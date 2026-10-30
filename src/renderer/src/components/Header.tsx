@@ -211,6 +211,7 @@ export const StatusBar = memo(function StatusBar(): ReactNode {
   const account = useAppStore((state) => state.account)
   const accounts = useAppStore((state) => state.accounts)
   const appInfo = useAppStore((state) => state.appInfo)
+  const appUpdate = useAppStore((state) => state.appUpdate)
   const stats = useQueueStore((state) => state.stats)
   const setPaletteOpen = useUiStore((state) => state.setPaletteOpen)
   const padding = useChromePadding()
@@ -264,6 +265,21 @@ export const StatusBar = memo(function StatusBar(): ReactNode {
         <span className="kbd">Ctrl</span>
         <span className="kbd">K</span>
       </button>
+
+      {appUpdate?.hasUpdate && appUpdate.latest ? (
+        <button
+          type="button"
+          className="no-drag flex shrink-0 items-center gap-1 rounded px-1 py-0.5 font-semibold transition-colors hover:bg-[var(--row-hover)]"
+          style={{ color: 'var(--accent)' }}
+          title={t('settings.about.updateAvailable', { version: appUpdate.latest })}
+          onClick={() => {
+            if (appUpdate.url) void window.api.openExternal(appUpdate.url)
+          }}
+        >
+          <Icon name="arrowUp" size={11} />
+          {t('statusbar.update', { version: appUpdate.latest })}
+        </button>
+      ) : null}
 
       {appInfo ? <span className="shrink-0 tabular-nums">v{appInfo.appVersion}</span> : null}
     </footer>

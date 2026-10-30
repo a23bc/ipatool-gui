@@ -366,6 +366,8 @@ export interface Settings {
   maxLogLines: number
   resumeQueueOnLaunch: boolean
   notifyOnComplete: boolean
+  /** Check GitHub for a newer app release on launch (notification only). */
+  autoCheckUpdates: boolean
   confirmCloseWhileDownloading: boolean
   /** Convenience only - the password is never persisted. */
   lastEmail: string

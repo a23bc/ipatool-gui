@@ -78,6 +78,7 @@ export const en = {
   'statusbar.ready': 'Ready',
   'statusbar.active': '{n} active',
   'statusbar.idle': 'Idle',
+  'statusbar.update': 'Update {version}',
 
   /* ---------------- engine ---------------- */
   'engine.state.idle': 'Not initialised',
@@ -424,6 +425,9 @@ export const en = {
   'settings.about.platform': 'Platform',
   'settings.about.upstream': 'ipatool upstream',
   'settings.about.checkUpdate': 'Check for updates',
+  'settings.about.autoCheck': 'Check for updates on launch',
+  'settings.about.autoCheckHelp':
+    'Only asks GitHub for the newest tag; nothing is downloaded until you open the release page.',
   'settings.about.updateAvailable': 'Version {version} is available',
   'settings.about.updateLatest': 'You are on the latest version',
   'settings.about.updateNone': 'Update checks are not configured for this build',

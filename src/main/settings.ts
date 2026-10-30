@@ -56,6 +56,7 @@ export function defaultSettings(): Settings {
     maxLogLines: 2000,
     resumeQueueOnLaunch: true,
     notifyOnComplete: true,
+    autoCheckUpdates: true,
     confirmCloseWhileDownloading: false,
     lastEmail: ''
   }

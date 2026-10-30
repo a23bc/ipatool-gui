@@ -29,6 +29,8 @@ export function SettingsView(): ReactNode {
   const install = useAppStore((state) => state.installEngine)
   const uninstall = useAppStore((state) => state.uninstallEngine)
   const appInfo = useAppStore((state) => state.appInfo)
+  const appUpdate = useAppStore((state) => state.appUpdate)
+  const checkForUpdate = useAppStore((state) => state.checkForUpdate)
   const account = useAppStore((state) => state.account)
   const accounts = useAppStore((state) => state.accounts)
   const revokeAccount = useAppStore((state) => state.revokeAccount)
@@ -40,8 +42,7 @@ export function SettingsView(): ReactNode {
   const [releases, setReleases] = useState<EngineRelease[]>([])
   const [releasesLoading, setReleasesLoading] = useState(false)
   const [detecting, setDetecting] = useState(false)
-  const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'done'>('idle')
-  const [updateInfo, setUpdateInfo] = useState<{ latest: string | null; hasUpdate: boolean; url: string | null } | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -76,42 +77,6 @@ export function SettingsView(): ReactNode {
       // in the disabled "detecting" state forever.
       setDetecting(false)
     }
-  }
-
-  const checkUpdate = async (): Promise<void> => {
-    setUpdateState('checking')
-    let result
-    try {
-      result = await window.api.checkAppUpdate()
-    } catch (error) {
-      // Without this the button stayed disabled in the "checking" state and
-      // the rejection surfaced as an unhandled promise rejection.
-      setUpdateState('done')
-      setUpdateInfo(null)
-      toast({ kind: 'error', message: t('settings.about.updateFailed'), detail: String(error) })
-      return
-    }
-    setUpdateState('done')
-    if (result.error === 'update-check-not-configured') {
-      setUpdateInfo(null)
-      toast({ kind: 'info', message: t('settings.about.updateNone') })
-      return
-    }
-    if (result.error) {
-      setUpdateInfo(null)
-      toast({ kind: 'error', message: t('settings.about.updateFailed'), detail: result.error })
-      return
-    }
-    setUpdateInfo({ latest: result.latest, hasUpdate: result.hasUpdate, url: result.url })
-    toast({
-      kind: result.hasUpdate ? 'success' : 'info',
-      message: result.hasUpdate
-        ? t('settings.about.updateAvailable', { version: result.latest ?? '' })
-        : t('settings.about.updateLatest'),
-      ...(result.hasUpdate && result.url
-        ? { actionLabel: t('common.open'), onAction: () => void window.api.openExternal(result.url as string) }
-        : {})
-    })
   }
 
   const clearArtwork = async (): Promise<void> => {
@@ -571,17 +536,27 @@ export function SettingsView(): ReactNode {
               <button
                 type="button"
                 className="btn h-[26px]"
-                onClick={() => void checkUpdate()}
-                disabled={updateState === 'checking'}
+                onClick={() => {
+                  setCheckingUpdate(true)
+                  void checkForUpdate().finally(() => setCheckingUpdate(false))
+                }}
+                disabled={checkingUpdate}
               >
-                {updateState === 'checking' ? <Spinner size={12} /> : <Icon name="refresh" size={12} />}
+                {checkingUpdate ? <Spinner size={12} /> : <Icon name="refresh" size={12} />}
                 {t('settings.about.checkUpdate')}
               </button>
-              {updateInfo?.hasUpdate ? (
-                <span className="badge badge-success">{updateInfo.latest}</span>
+              {appUpdate?.hasUpdate ? (
+                <span className="badge badge-success">{appUpdate.latest}</span>
               ) : null}
             </div>
           </Field>
+
+          <Toggle
+            checked={settings.autoCheckUpdates}
+            onChange={(value) => void update({ autoCheckUpdates: value })}
+            label={t('settings.about.autoCheck')}
+            hint={t('settings.about.autoCheckHelp')}
+          />
 
           {appInfo ? (
             <Field label={t('settings.about.platform')} stacked>
