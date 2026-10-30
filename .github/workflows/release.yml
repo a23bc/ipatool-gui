@@ -252,6 +252,7 @@ jobs:
           name: release-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
             release/*.exe
+            release/*.zip
             release/*.dmg
             release/*.app.tar.gz
             release/*.AppImage

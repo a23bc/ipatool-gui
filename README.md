@@ -109,7 +109,7 @@ npm run typecheck && npm test && npm run lint
 Package:
 
 ```bash
-npm run dist:win     # Windows NSIS + portable
+npm run dist:win     # Windows NSIS + portable exe + portable zip
 npm run dist:mac     # macOS (unsigned)
 npm run dist:linux   # AppImage + deb
 ```
@@ -132,7 +132,7 @@ Worth knowing (details in the docs):
 - **True multi-account isolation** — each account has its own ipatool session directory and sandboxed HOME.
 - **Pause is real pause** — uses ipatool’s HTTP Range resume, not cancel-and-restart.
 - **Credentials are never stored in plaintext** — OS keychain / `safeStorage`; refused rather than written when unavailable.
-- **No auto-update** — an unsigned auto-update channel is a security risk; updates are prompt-only.
+- **No silent auto-update** — the app can check for a newer release on launch, but it only shows a prompt and opens the release page; unsigned binaries are never downloaded or installed automatically.
 
 ---
 

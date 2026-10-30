@@ -270,7 +270,7 @@ Windows 产物未签名。
 > macOS 在 CI 上产 **`.app.tar.gz` 运行包**（GitHub 的 macOS runner 无法运行 dmg 所需的
 > `hdiutil attach`，会报 `Device not configured`，故用 `dir` target + tar）；
 > 在真实 Mac 上 `npm run dist:mac` 仍会产 dmg 安装包。
-> 各平台产物：Windows = NSIS 安装包 + portable 运行包（x64）；Linux = deb 安装包 + AppImage 运行包（x64 与 arm64 分开打包）。
+> 各平台产物：Windows = NSIS 安装包 + portable 运行包 + portable zip（均 x64）；Linux = deb 安装包 + AppImage 运行包（x64 与 arm64 分开打包）。
 >
 > Draft 不是公开状态，仍需到 Releases 页手动点 Publish 才对外可见。
 > 地下开发阶段只要不勾 `publish`，仓库对外不会留下任何 Release 痕迹。
@@ -295,7 +295,7 @@ npm run dev          # esbuild 监听主进程 + Vite HMR + 自动拉起 Electro
 
 ```bash
 npm run dist         # 当前平台
-npm run dist:win     # Windows NSIS + portable
+npm run dist:win     # Windows NSIS + portable exe + portable zip
 npm run dist:mac     # macOS dmg/zip（未签名）
 npm run dist:linux   # AppImage + deb（本机同时产 x64 与 arm64；CI 按架构拆成两个 job）
 ```
