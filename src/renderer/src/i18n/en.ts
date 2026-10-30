@@ -391,7 +391,8 @@ export const en = {
   'settings.downloads.concurrencyHelp':
     'Each download is a separate ipatool process. Higher values use more bandwidth and may trip Apple rate limits.',
   'settings.downloads.autoPurchase': 'Obtain a licence automatically when needed',
-  'settings.downloads.autoPurchaseHelp': 'Passes --purchase so free apps are added to your account first.',
+  'settings.downloads.autoPurchaseHelp':
+    'Off by default. When enabled, passes --purchase so free apps are added to your account first.',
   'settings.downloads.defaultPlatform': 'Default platform',
   'settings.downloads.searchLimit': 'Default search result count',
   'settings.downloads.pageSize': 'Purchases per page',

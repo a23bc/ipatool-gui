@@ -380,7 +380,7 @@ export const zh: Dict = {
   'settings.downloads.concurrency': '并行下载数',
   'settings.downloads.concurrencyHelp': '每个下载都是独立的 ipatool 进程。数值越大越占带宽，也更容易触发 Apple 限流。',
   'settings.downloads.autoPurchase': '需要时自动获取许可',
-  'settings.downloads.autoPurchaseHelp': '会加上 --purchase，先把免费应用加入你的账户。',
+  'settings.downloads.autoPurchaseHelp': '默认关闭；开启后会加上 --purchase，先把免费应用加入你的账户。',
   'settings.downloads.defaultPlatform': '默认平台',
   'settings.downloads.searchLimit': '默认搜索结果数',
   'settings.downloads.pageSize': '已购项目每页数量',
