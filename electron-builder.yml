@@ -133,3 +133,8 @@ linux:
       Name: IPATool GUI
       Comment: Search the App Store and download .ipa packages via ipatool
       Terminal: false
+
+deb:
+  # The platform-level `normal` above is for mksquashfs; fpm has its own
+  # vocabulary and rejects "normal", so keep the deb on xz.
+  compression: xz
