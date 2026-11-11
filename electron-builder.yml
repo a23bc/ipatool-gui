@@ -36,6 +36,10 @@ asar: true
 asarUnpack: []
 compression: maximum
 
+# The AppImage launcher gets a sandbox fallback for kernels that restrict
+# unprivileged user namespaces (Ubuntu 24.04+). See scripts/after-pack.cjs.
+afterPack: scripts/after-pack.cjs
+
 # No native modules in this project, so never attempt a rebuild.
 npmRebuild: false
 nodeGypRebuild: false
@@ -109,6 +113,8 @@ linux:
   synopsis: Desktop front-end for ipatool
   maintainer: ipatool-gui contributors <noreply@example.com>
   artifactName: ${name}-${version}-linux-${arch}.${ext}
+  # mksquashfs then defaults to zlib, which the catalog's mount helper supports.
+  compression: normal
   # ⚠️ Deliberately NO `arch:` here. Once a target declares its own arch list,
   # electron-builder stops consulting the CLI: computeArchToTargetNamesMap()
   # only uses --x64/--arm64 for target names it has to invent, and otherwise
