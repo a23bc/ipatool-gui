@@ -60,6 +60,26 @@ export default tseslint.config(
     }
   },
 
+  // --- CommonJS build hooks (electron-builder afterPack) ---------------------
+  {
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'commonjs',
+      globals: {
+        ...scriptGlobals,
+        require: 'readonly',
+        module: 'readonly',
+        __dirname: 'readonly'
+      }
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-console': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }]
+    }
+  },
+
   // --- TypeScript (all layers) ----------------------------------------------
   {
     files: ['**/*.{ts,tsx}'],
