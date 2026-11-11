@@ -34,6 +34,7 @@ export function defaultSettings(): Settings {
   return {
     ipatoolPath: '',
     autoInstallEngine: true,
+    autoCheckEngineUpdates: true,
     engineVersion: '',
     githubMirror: '',
     downloadDir: defaultDownloadDir(),

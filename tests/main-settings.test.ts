@@ -61,6 +61,8 @@ describe('defaultSettings', () => {
     expect(settings.isolateSessionHome).toBe(true)
     // Obtaining a licence is a visible account action; opt in, do not default to it.
     expect(settings.autoPurchase).toBe(false)
+    // The launch check only notifies; it is on until the user opts out.
+    expect(settings.autoCheckEngineUpdates).toBe(true)
     expect(defaultSettings().downloadDir).toContain('ipatool')
   })
 })

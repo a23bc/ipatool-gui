@@ -346,6 +346,8 @@ export const zh: Dict = {
   'settings.engine.redetect': '重新检测',
   'settings.engine.autoInstall': '缺失时自动下载',
   'settings.engine.autoInstallHelp': '从 majd/ipatool 的 Releases 获取，并校验 SHA-256。',
+  'settings.engine.autoCheck': '启动时检查 ipatool 更新',
+  'settings.engine.autoCheckHelp': '启动后查询 ipatool 是否有新版本并提示；不会自动安装，确认后才会更新。',
   'settings.engine.version': '要安装的版本',
   'settings.engine.versionLatest': '最新版本',
   'settings.engine.releasesLoading': '正在加载版本列表…',
