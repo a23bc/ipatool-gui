@@ -205,6 +205,13 @@ export function SettingsView(): ReactNode {
             </div>
           </Field>
 
+          <Toggle
+            checked={settings.autoCheckEngineUpdates}
+            onChange={(value) => void update({ autoCheckEngineUpdates: value })}
+            label={t('settings.engine.autoCheck')}
+            hint={t('settings.engine.autoCheckHelp')}
+          />
+
           <Field label={t('settings.engine.path')} hint={t('settings.engine.pathHelp')} stacked>
             <div className="flex items-center gap-2">
               <TextInput

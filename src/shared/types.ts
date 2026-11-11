@@ -326,6 +326,8 @@ export interface Settings {
   ipatoolPath: string
   /** Automatically download ipatool from GitHub releases when missing. */
   autoInstallEngine: boolean
+  /** Check GitHub for a newer ipatool release on launch (notification only). */
+  autoCheckEngineUpdates: boolean
   /** Pin a specific ipatool version ("" = latest). */
   engineVersion: string
   /** Prefix prepended to github.com URLs (for mirrors / proxies). */

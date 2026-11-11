@@ -183,8 +183,9 @@ async function postStartup(): Promise<void> {
   }
 
   // Tell the UI when a newer ipatool is out - the version picker can already
-  // see it, but nothing used to say "you are behind".
-  if (engineManager.state.state === 'ready') {
+  // see it, but nothing used to say "you are behind". Users who prefer no
+  // GitHub request on launch can turn this off in Settings.
+  if (settings.autoCheckEngineUpdates && engineManager.state.state === 'ready') {
     void engineManager
       .checkUpdate()
       .then((result) => {

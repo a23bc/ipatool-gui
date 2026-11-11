@@ -356,6 +356,8 @@ export const en = {
   'settings.engine.redetect': 'Re-detect',
   'settings.engine.autoInstall': 'Download automatically when missing',
   'settings.engine.autoInstallHelp': 'Fetches from majd/ipatool releases and verifies the SHA-256 sidecar.',
+  'settings.engine.autoCheck': 'Check for ipatool updates on launch',
+  'settings.engine.autoCheckHelp': 'Looks for a newer ipatool release and shows a notification; it never installs without your confirmation.',
   'settings.engine.version': 'Version to install',
   'settings.engine.versionLatest': 'Latest release',
   'settings.engine.releasesLoading': 'Loading releases…',

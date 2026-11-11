@@ -146,6 +146,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     // render from having to null-check every field.
     ipatoolPath: '',
     autoInstallEngine: true,
+    autoCheckEngineUpdates: true,
     engineVersion: '',
     githubMirror: '',
     downloadDir: '',

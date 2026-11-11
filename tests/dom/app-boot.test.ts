@@ -42,7 +42,7 @@ const APP_INFO: AppInfoPayload = {
 }
 
 const SETTINGS = {
-  ipatoolPath: '', autoInstallEngine: true, engineVersion: '', githubMirror: '',
+  ipatoolPath: '', autoInstallEngine: true, autoCheckEngineUpdates: true, engineVersion: '', githubMirror: '',
   downloadDir: '/tmp/dl', concurrency: 2, autoPurchase: true, defaultPlatform: '',
   searchLimit: 25, purchasesPageSize: 50, passphraseMode: 'auto', keychainPassphrase: '',
   isolateSessionHome: true, accounts: [], activeAccountId: '', accountCounter: 1,
