@@ -59,7 +59,7 @@ export function defaultSettings(): Settings {
     notifyOnComplete: true,
     autoCheckUpdates: true,
     confirmCloseWhileDownloading: false,
-    lastEmail: ''
+    emailHistory: []
   }
 }
 
@@ -146,6 +146,21 @@ export function normalizeSettings(input: unknown): Settings {
   if (!accounts.some((account) => account.id === out.activeAccountId)) {
     out.activeAccountId = accounts[0]?.id ?? ''
   }
+
+  // `lastEmail` was the pre-history field. Seed it first, then merge the saved
+  // list; dedupe case-insensitively so a legacy entry cannot appear twice.
+  const emails: string[] = []
+  const seenEmails = new Set<string>()
+  const addEmail = (value: unknown): void => {
+    if (typeof value !== 'string') return
+    const email = value.trim()
+    if (email === '' || seenEmails.has(email.toLowerCase())) return
+    seenEmails.add(email.toLowerCase())
+    emails.push(email)
+  }
+  addEmail(raw.lastEmail)
+  for (const value of Array.isArray(raw.emailHistory) ? raw.emailHistory : []) addEmail(value)
+  out.emailHistory = emails.slice(0, 50)
 
   return out
 }

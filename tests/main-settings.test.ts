@@ -78,6 +78,14 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings([]).concurrency).toBe(2)
   })
 
+  it('migrates lastEmail into the e-mail history and de-duplicates it', () => {
+    const out = normalizeSettings({
+      lastEmail: 'a@example.com',
+      emailHistory: ['A@example.com', ' b@example.com ', 42, '']
+    })
+    expect(out.emailHistory).toEqual(['a@example.com', 'b@example.com'])
+  })
+
   it('ignores unknown fields', () => {
     const out = normalizeSettings({ totallyUnknownKey: 'x', theme: 'dark' })
     expect(out).not.toHaveProperty('totallyUnknownKey')
