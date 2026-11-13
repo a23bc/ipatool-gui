@@ -296,6 +296,8 @@ export const en = {
   'downloads.progress.remaining': '{eta} left',
   'downloads.progress.done': 'Complete',
   'downloads.resumeHint': 'Paused downloads keep their partial file and resume where they stopped.',
+  'downloads.reloginRequired': 'Sign in again before downloading',
+  'downloads.reloginHint': 'Use the same Apple ID; your queue and purchases are kept.',
   'downloads.deletePartial.title': 'Discard the partial file?',
   'downloads.deletePartial.body':
     'The next attempt will start from zero bytes. Use this when Apple rejects the resume range (HTTP 416) after a long pause.',

@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import type { QueueItem } from '@shared/types'
-import { IPATOOL_ERROR_CODES } from '@shared/ipatool/errors'
+import { IPATOOL_ERROR_CODES, isStoreReloginRequired } from '@shared/ipatool/errors'
 import type { IconName } from '@renderer/components/Icon'
 import { useAppStore } from '@renderer/store/app'
 import { useQueueStore } from '@renderer/store/queue'
@@ -60,6 +60,7 @@ const DownloadRow = memo(function DownloadRow({ item }: RowProps): ReactNode {
   const askConfirm = useUiStore((state) => state.askConfirm)
   const toast = useUiStore((state) => state.toast)
   const setView = useUiStore((state) => state.setView)
+  const setAuthOpen = useUiStore((state) => state.setAuthOpen)
 
   const busy = item.state === 'running' || item.state === 'waiting'
 
@@ -83,6 +84,9 @@ const DownloadRow = memo(function DownloadRow({ item }: RowProps): ReactNode {
   const hint = item.error?.hint
   const hintKey =
     hint && (IPATOOL_ERROR_CODES as readonly string[]).includes(hint) ? `errors.${hint}.hint` : null
+  // ipatool 2.8.1's AMD failure is actionable (sign in again), not a network
+  // error; showing the raw progress/JSON blob here is misleading.
+  const relogin = item.state === 'error' && isStoreReloginRequired(item.error?.message)
 
   return (
     <div className="row h-full" style={{ borderBottom: 'none' }}>
@@ -104,9 +108,11 @@ const DownloadRow = memo(function DownloadRow({ item }: RowProps): ReactNode {
         {item.state === 'error' && item.error ? (
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-[11.5px]" style={{ color: 'var(--danger)' }}>
-              {item.error.message}
+              {relogin ? t('downloads.reloginRequired') : item.error.message}
             </span>
-            {hintKey ? (
+            {relogin ? (
+              <span className="shrink-0 truncate text-[11px] faint">{t('downloads.reloginHint')}</span>
+            ) : hintKey ? (
               <span className="shrink-0 truncate text-[11px] faint">{t(hintKey as Key)}</span>
             ) : null}
           </div>
@@ -122,6 +128,10 @@ const DownloadRow = memo(function DownloadRow({ item }: RowProps): ReactNode {
 
         {item.state === 'paused' || item.state === 'queued' || item.state === 'canceled'
           ? actionButton('resume', 'play', t('downloads.action.resume'), () => void control(item.id, 'resume'))
+          : null}
+
+        {relogin
+          ? actionButton('signin', 'key', t('auth.signIn'), () => setAuthOpen(true))
           : null}
 
         {item.state === 'error'
