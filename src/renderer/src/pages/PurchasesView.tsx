@@ -47,14 +47,14 @@ export function PurchasesView(): ReactNode {
   const enqueue = useQueueStore((state) => state.enqueue)
   const setAuthOpen = useUiStore((state) => state.setAuthOpen)
 
-  // Tab entry: paint the cached list at once, then refresh page 1 in the
-  // background (merge, not replace - pages the user scrolled through stay).
+  // Tab entry: paint the cached list and only fetch when this account has no
+  // loaded list yet. Revisiting the tab is free; the Refresh button and the
+  // platform selector are the explicit ways to re-query.
   useEffect(() => {
     hydrateFromCache()
     if (!account) return
-    void load(1, false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: each tab switch remounts this view
-  }, [])
+    if (!usePurchasesStore.getState().loaded) void load(1, false)
+  }, [account, hydrateFromCache, load])
 
   const rows = useMemo(() => visibleApps(apps, filter), [apps, filter])
   const hasMore = totalCount > 0 ? apps.length < totalCount : false

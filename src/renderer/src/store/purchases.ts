@@ -108,6 +108,9 @@ export const usePurchasesStore = create<PurchasesState>()((set, get) => ({
   setFilter: (filter) => set({ filter }),
 
   async load(page = 1, append = false) {
+    // Tab remounts and the platform picker can race each other. `loading` is
+    // set synchronously below, so this also drops same-tick duplicates.
+    if (get().loading) return
     const settings = useAppStore.getState().settings
     const accountId = currentAccountId()
     const epoch = get().epoch
