@@ -116,7 +116,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            fakeroot dpkg rpm libarchive-tools zsync
+            fakeroot dpkg rpm libarchive-tools zsync squashfs-tools
 
       # Packaging consumes dist/, so it must exist before electron-builder runs.
       - name: Build app bundle
@@ -164,25 +164,45 @@ jobs:
           fi
           NAME="$(basename "$APPIMAGE")"
           case "${{ matrix.arch }}" in
-            x64) APPIMAGE_ARCH=x86_64 ;;
-            arm64) APPIMAGE_ARCH=aarch64 ;;
+            x64) TARGET_ARCH=x86_64 ;;
+            arm64) TARGET_ARCH=aarch64 ;;
             *) echo "::error::unsupported AppImage architecture"; exit 1 ;;
           esac
+          # appimagetool is itself an AppImage, so run the build for the runner's
+          # architecture; ARCH selects the target runtime it embeds.
+          case "$(uname -m)" in
+            x86_64) TOOL_ARCH=x86_64 ;;
+            aarch64) TOOL_ARCH=aarch64 ;;
+            *) echo "::error::unsupported runner architecture"; exit 1 ;;
+          esac
+          # This is the suffix electron-builder put in the filename (x86_64 /
+          # arm64), not the runtime architecture appimagetool wants (x86_64 /
+          # aarch64); the update-information pattern must match the asset name.
+          BASE="${NAME%.AppImage}"
+          FILE_ARCH="${BASE##*-}"
 
-          TOOL="/tmp/appimagetool-${APPIMAGE_ARCH}.AppImage"
+          TOOL="/tmp/appimagetool-${TOOL_ARCH}.AppImage"
           curl -fsSL -o "$TOOL" \
-            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGE_ARCH}.AppImage"
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${TOOL_ARCH}.AppImage"
           chmod +x "$TOOL"
 
-          ( cd release && "./$NAME" --appimage-extract > /dev/null )
+          # Extract without executing the payload: the arm64 job runs on an x64
+          # runner, so running the arm64 AppImage would fail with Exec format.
+          OFFSET="$(LC_ALL=C grep -abo -m1 'hsqs' "$APPIMAGE" | cut -d: -f1)"
+          if [ -z "$OFFSET" ]; then
+            echo "::error::could not locate the SquashFS payload in $APPIMAGE"
+            exit 1
+          fi
+          rm -rf release/squashfs-root
+          unsquashfs -o "$OFFSET" -d release/squashfs-root "$APPIMAGE" > /dev/null
           # electron-builder's stage directory is 0700; appimagetool (rightly)
           # refuses to ship an AppImage that other users cannot read.
           chmod -R a+rX release/squashfs-root
           chmod a+rx release/squashfs-root/AppRun
           rm -f "$APPIMAGE"
           REPO="${GITHUB_REPOSITORY}"
-          APPIMAGE_EXTRACT_AND_RUN=1 ARCH="$APPIMAGE_ARCH" "$TOOL" --no-appstream \
-            -u "gh-releases-zsync|${REPO%%/*}|${REPO##*/}|latest|ipatool-gui-*-${APPIMAGE_ARCH}.AppImage.zsync" \
+          APPIMAGE_EXTRACT_AND_RUN=1 ARCH="$TARGET_ARCH" "$TOOL" --no-appstream \
+            -u "gh-releases-zsync|${REPO%%/*}|${REPO##*/}|latest|ipatool-gui-*-${FILE_ARCH}.AppImage.zsync" \
             release/squashfs-root "$APPIMAGE"
           rm -rf release/squashfs-root
 
