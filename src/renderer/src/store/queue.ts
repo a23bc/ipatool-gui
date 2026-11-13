@@ -9,6 +9,7 @@
 import { create } from 'zustand'
 import type { DownloadRequest, QueueItem } from '@shared/types'
 import type { QueueAction } from '@shared/ipc'
+import { isStoreReloginRequired } from '@shared/ipatool/errors'
 import { computeStats, mergeSnapshot, type QueueStats } from '@renderer/lib/queueMerge'
 import { progressBus } from '@renderer/lib/progressBus'
 import { useUiStore } from './ui'
@@ -139,11 +140,22 @@ export const useQueueStore = create<QueueState>()((set, get) => ({
             : {})
         })
       } else if (item.state === 'error') {
-        useUiStore.getState().toast({
-          kind: 'error',
-          message: t('toast.downloadFailed', { name: item.name }),
-          detail: item.error?.message
-        })
+        const detail = item.error?.message
+        if (isStoreReloginRequired(detail)) {
+          useUiStore.getState().toast({
+            kind: 'error',
+            message: t('toast.reloginRequired'),
+            detail: t('toast.reloginRequiredDetail'),
+            actionLabel: t('auth.signIn'),
+            onAction: () => useUiStore.getState().setAuthOpen(true)
+          })
+        } else {
+          useUiStore.getState().toast({
+            kind: 'error',
+            message: t('toast.downloadFailed', { name: item.name }),
+            detail
+          })
+        }
       }
     }))
   },

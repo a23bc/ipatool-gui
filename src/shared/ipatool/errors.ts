@@ -312,6 +312,15 @@ export function isPassphraseRequired(...parts: Array<string | null | undefined>)
   return classifyError(...parts).code === 'passphrase-required'
 }
 
+/**
+ * ipatool 2.8.1 added a Store AMD provisioning step to downloads. A session
+ * created by an older engine is still signed in - search and purchases work -
+ * but the download proof cannot be generated until the user logs in again.
+ */
+export function isStoreReloginRequired(...parts: Array<string | null | undefined>): boolean {
+  return /store AMD state is not provisioned/i.test(haystack(parts))
+}
+
 /** Truncates very long messages (Apple sometimes returns whole plists). */
 export function shorten(message: string, max = 400): string {
   if (message.length <= max) return message

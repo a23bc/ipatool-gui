@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { classifyError, isPassphraseRequired, isTwoFactorRequired, shorten } from '@shared/ipatool/errors'
+import {
+  classifyError,
+  isPassphraseRequired,
+  isStoreReloginRequired,
+  isTwoFactorRequired,
+  shorten
+} from '@shared/ipatool/errors'
 
 describe('classifyError', () => {
   it('recognises the non-interactive 2FA signal ipatool logs on success', () => {
@@ -22,6 +28,15 @@ describe('classifyError', () => {
 
   it('recognises a wrong keychain passphrase', () => {
     expect(classifyError('failed to decrypt keyring item').code).toBe('passphrase-invalid')
+  })
+
+  it('recognises a session that needs Store AMD provisioning again', () => {
+    // ipatool 2.8.1 emits this while the account is still signed in; searches
+    // and purchases work, but downloads need a fresh auth login.
+    const log =
+      'failed to send http request: generate Store AMD proof: store AMD state is not provisioned; run \'ipatool auth login\' to authenticate'
+    expect(isStoreReloginRequired(log)).toBe(true)
+    expect(isStoreReloginRequired('download failed: disk full')).toBe(false)
   })
 
   it('recognises an unauthenticated session', () => {
