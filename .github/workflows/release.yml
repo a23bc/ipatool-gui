@@ -175,6 +175,10 @@ jobs:
           chmod +x "$TOOL"
 
           ( cd release && "./$NAME" --appimage-extract > /dev/null )
+          # electron-builder's stage directory is 0700; appimagetool (rightly)
+          # refuses to ship an AppImage that other users cannot read.
+          chmod -R a+rX release/squashfs-root
+          chmod a+rx release/squashfs-root/AppRun
           rm -f "$APPIMAGE"
           REPO="${GITHUB_REPOSITORY}"
           APPIMAGE_EXTRACT_AND_RUN=1 ARCH="$APPIMAGE_ARCH" "$TOOL" --no-appstream \
