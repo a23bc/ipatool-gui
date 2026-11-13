@@ -282,7 +282,9 @@ export function AuthModal(): ReactNode {
         >
           {step === 'credentials' ? (
             <>
-              <label className="flex flex-col gap-1.5">
+              {/* A div, not a label: clicking a suggestion inside a label would
+                  re-focus the input and immediately reopen the list. */}
+              <div className="flex flex-col gap-1.5">
                 <span className="text-[11.5px] font-medium dim">{t('auth.email')}</span>
                 <div ref={emailBoxRef} className="relative">
                   <input
@@ -292,6 +294,7 @@ export function AuthModal(): ReactNode {
                     type="text"
                     value={email}
                     autoComplete="off"
+                    aria-label={t('auth.email')}
                     placeholder={t('auth.emailPlaceholder')}
                     role="combobox"
                     aria-expanded={showEmails && settings.emailHistory.length > 0}
@@ -314,6 +317,7 @@ export function AuthModal(): ReactNode {
                       id="auth-email-history"
                       role="listbox"
                       className="absolute left-0 right-0 top-full z-20 mt-1 max-h-[176px] overflow-y-auto rounded-lg border p-1"
+                      onMouseDown={(event) => event.preventDefault()}
                       style={{
                         background: 'var(--bg-elev)',
                         borderColor: 'var(--border)',
@@ -351,7 +355,7 @@ export function AuthModal(): ReactNode {
                     </div>
                   ) : null}
                 </div>
-              </label>
+              </div>
 
               <label className="flex flex-col gap-1.5">
                 <span className="text-[11.5px] font-medium dim">{t('auth.password')}</span>
