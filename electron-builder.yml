@@ -112,7 +112,7 @@ linux:
   category: Utility
   synopsis: Desktop front-end for ipatool
   maintainer: ipatool-gui contributors <noreply@example.com>
-  artifactName: ${name}-${version}-linux-${arch}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
   # mksquashfs then defaults to zlib, which the catalog's mount helper supports.
   compression: normal
   # ⚠️ Deliberately NO `arch:` here. Once a target declares its own arch list,
