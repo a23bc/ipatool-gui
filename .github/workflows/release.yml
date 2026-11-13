@@ -116,7 +116,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            fakeroot dpkg rpm libarchive-tools zsync squashfs-tools
+            fakeroot dpkg rpm libarchive-tools zsync squashfs-tools p7zip-full
 
       # Packaging consumes dist/, so it must exist before electron-builder runs.
       - name: Build app bundle
@@ -188,7 +188,9 @@ jobs:
 
           # Extract without executing the payload: the arm64 job runs on an x64
           # runner, so running the arm64 AppImage would fail with Exec format.
-          OFFSET="$(LC_ALL=C grep -abo -m1 'hsqs' "$APPIMAGE" | cut -d: -f1)"
+          # `grep hsqs` also matches strings inside the runtime; use 7z, which
+          # reports the real SquashFS superblock offset.
+          OFFSET="$(7z l "$APPIMAGE" 2>/dev/null | sed -n 's/^Offset = //p' | head -n1)" || true
           if [ -z "$OFFSET" ]; then
             echo "::error::could not locate the SquashFS payload in $APPIMAGE"
             exit 1
