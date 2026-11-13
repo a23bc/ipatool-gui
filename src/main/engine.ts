@@ -64,7 +64,7 @@ const REPO_WEB = `https://github.com/${IPATOOL_REPO}`
  * trick can answer (offline API, blocked mirror, ...). Installing a slightly old
  * ipatool beats failing to install any.
  */
-const FALLBACK_VERSION = '2.6.0'
+const FALLBACK_VERSION = '2.8.1'
 
 interface GhAsset {
   name: string
