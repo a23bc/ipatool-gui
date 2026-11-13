@@ -57,6 +57,7 @@ describe('artifact selection', () => {
       'ipatool-gui-0.1.1-win-x64-portable.exe',
       'ipatool-gui-0.1.1-mac-arm64.app.tar.gz',
       'ipatool-gui-0.1.1-linux-x86_64.AppImage',
+      'ipatool-gui-0.1.1-linux-x86_64.AppImage.zsync',
       'ipatool-gui-0.1.1-linux-amd64.deb',
       'ipatool-gui-0.1.1-mac-x64.dmg'
     ]
@@ -64,10 +65,10 @@ describe('artifact selection', () => {
 
     const result = await run([dir])
     expect(result.code).toBe(0)
-    expect(result.stdout).toContain('6 artifact(s)')
+    expect(result.stdout).toContain('7 artifact(s)')
 
     const lines = await manifestLines()
-    expect(lines).toHaveLength(6)
+    expect(lines).toHaveLength(7)
     // Sorted, so the manifest is stable across runs and diffable.
     expect(lines.map((line) => line.slice(66))).toEqual([...artifacts].sort())
   })

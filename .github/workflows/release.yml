@@ -116,7 +116,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            fakeroot dpkg rpm libarchive-tools
+            fakeroot dpkg rpm libarchive-tools zsync
 
       # Packaging consumes dist/, so it must exist before electron-builder runs.
       - name: Build app bundle
@@ -149,6 +149,46 @@ jobs:
           # Builds are unsigned by design; make that explicit so a missing
           # certificate never silently changes the output.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # electron-builder's AppImage writer does not embed update info and does
+      # not emit a zsync file, which AppImageHub/AppImageUpdate require. Rebuild
+      # the AppImage with appimagetool so both are present next to the asset.
+      - name: Add AppImage update information
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          APPIMAGE="$(find release -maxdepth 1 -name '*.AppImage' -print -quit)"
+          if [ -z "$APPIMAGE" ]; then
+            echo "::error::electron-builder produced no AppImage"
+            exit 1
+          fi
+          NAME="$(basename "$APPIMAGE")"
+          case "${{ matrix.arch }}" in
+            x64) APPIMAGE_ARCH=x86_64 ;;
+            arm64) APPIMAGE_ARCH=aarch64 ;;
+            *) echo "::error::unsupported AppImage architecture"; exit 1 ;;
+          esac
+
+          TOOL="/tmp/appimagetool-${APPIMAGE_ARCH}.AppImage"
+          curl -fsSL -o "$TOOL" \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGE_ARCH}.AppImage"
+          chmod +x "$TOOL"
+
+          ( cd release && "./$NAME" --appimage-extract > /dev/null )
+          rm -f "$APPIMAGE"
+          REPO="${GITHUB_REPOSITORY}"
+          APPIMAGE_EXTRACT_AND_RUN=1 ARCH="$APPIMAGE_ARCH" "$TOOL" --no-appstream \
+            -u "gh-releases-zsync|${REPO%%/*}|${REPO##*/}|latest|ipatool-gui-*-${APPIMAGE_ARCH}.AppImage.zsync" \
+            release/squashfs-root "$APPIMAGE"
+          rm -rf release/squashfs-root
+
+          # appimagetool generates this when zsyncmake is installed; fall back
+          # to zsyncmake directly so a missing helper cannot silently drop it.
+          if [ ! -f "${APPIMAGE}.zsync" ]; then
+            zsyncmake -u "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${NAME}.zsync" \
+              -o "${APPIMAGE}.zsync" "$APPIMAGE"
+          fi
+          ls -lh "$APPIMAGE" "${APPIMAGE}.zsync"
 
       # macOS: turn the unpacked .app into a single runnable archive.
       - name: Package the .app as a runnable tar.gz
@@ -259,6 +299,7 @@ jobs:
             release/*.dmg
             release/*.app.tar.gz
             release/*.AppImage
+            release/*.zsync
             release/*.deb
             release/SHA256SUMS.txt
           if-no-files-found: error
