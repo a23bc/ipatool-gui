@@ -470,6 +470,9 @@ export const en = {
   'toast.downloadStarted': 'Download started',
   'toast.downloadDone': '{name} downloaded',
   'toast.downloadFailed': '{name} failed',
+  'toast.reloginRequired': 'Sign in again to enable downloads',
+  'toast.reloginRequiredDetail':
+    'ipatool 2.8.1 needs to provision this session for Store downloads. Sign in with the same Apple ID; your purchases and queue are kept.',
   'toast.copied': 'Copied to clipboard',
   'toast.saved': 'Saved',
   'toast.settingsReset': 'Settings reset to defaults',

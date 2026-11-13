@@ -455,6 +455,9 @@ export const zh: Dict = {
   'toast.downloadStarted': '开始下载',
   'toast.downloadDone': '{name} 下载完成',
   'toast.downloadFailed': '{name} 下载失败',
+  'toast.reloginRequired': '需要重新登录一次才能下载',
+  'toast.reloginRequiredDetail':
+    'ipatool 2.8.1 需要为当前会话完成 Store AMD 初始化；用同一个 Apple ID 重新登录即可，已购记录和队列都会保留。',
   'toast.copied': '已复制到剪贴板',
   'toast.saved': '已保存',
   'toast.settingsReset': '设置已恢复默认',
