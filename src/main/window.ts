@@ -42,6 +42,7 @@ function titleBarOptions(): Electron.BrowserWindowConstructorOptions {
 
 export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
   const dark = nativeTheme.shouldUseDarkColors
+  chromeModal = false
 
   const win = new BrowserWindow({
     width: options.width ?? 1240,
@@ -100,6 +101,10 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
 
   win.on('maximize', () => win.webContents.send('window:maximized', true))
   win.on('unmaximize', () => win.webContents.send('window:maximized', false))
+  // Windows may repaint the caption strip while the window loses focus (a
+  // login request, a native dialog, ...). Re-apply the last known state when
+  // focus comes back instead of leaving a solid strip over an open modal.
+  win.on('focus', () => syncTitleBarOverlay(win))
 
   if (DEV_URL) {
     void win.loadURL(DEV_URL)
@@ -110,17 +115,26 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
   return win
 }
 
+/**
+ * Last modal state reported by the renderer. Theme/settings events call
+ * syncTitleBarOverlay() without an explicit state; they must not paint the
+ * caption strip back to opaque while a dialog is still open.
+ */
+let chromeModal = false
+
 /** Keeps the Windows caption buttons in sync with the app theme. */
-export function syncTitleBarOverlay(win: BrowserWindow | null, modal = false): void {
+export function syncTitleBarOverlay(win: BrowserWindow | null, modal?: boolean): void {
   if (!win || process.platform !== 'win32') return
+  if (typeof modal === 'boolean') chromeModal = modal
+  const dimmed = modal ?? chromeModal
   try {
     const dark = nativeTheme.shouldUseDarkColors
     // Modal scrim is a dark blur over the whole page, including the strip the
     // OS caption buttons sit on. A painted overlay color cannot show that blur,
     // so the strip stays transparent while a modal is open and lets the scrim
     // through; glyphs stay bright because the scrim is dark on both themes.
-    const color = modal ? 'rgba(0, 0, 0, 0)' : dark ? '#101014' : '#ffffff'
-    const symbolColor = modal
+    const color = dimmed ? 'rgba(0, 0, 0, 0)' : dark ? '#101014' : '#ffffff'
+    const symbolColor = dimmed
       ? dark
         ? '#e8e8ef'
         : '#ffffff'

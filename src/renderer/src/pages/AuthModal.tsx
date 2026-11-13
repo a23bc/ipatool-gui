@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LoginResult, LoginStatus } from '@shared/types'
 import { useAppStore } from '@renderer/store/app'
-import { useUiStore } from '@renderer/store/ui'
+import { refreshChromeDimming, useUiStore } from '@renderer/store/ui'
 import { ErrorNotice } from '@renderer/components/ErrorNotice'
 import { Icon, Spinner } from '@renderer/components/Icon'
 import { Modal } from '@renderer/components/Modal'
@@ -103,6 +103,9 @@ export function AuthModal(): ReactNode {
       return
     } finally {
       setBusy(false)
+      // Login runs through ipatool and can leave the OS caption strip repainted;
+      // the dialog is still open, so restore its transparent overlay.
+      refreshChromeDimming()
     }
 
     if (result.status === 'ok') {
