@@ -317,7 +317,6 @@ export function AuthModal(): ReactNode {
                       id="auth-email-history"
                       role="listbox"
                       className="absolute left-0 right-0 top-full z-20 mt-1 max-h-[176px] overflow-y-auto rounded-lg border p-1"
-                      onMouseDown={(event) => event.preventDefault()}
                       style={{
                         background: 'var(--bg-elev)',
                         borderColor: 'var(--border)',
