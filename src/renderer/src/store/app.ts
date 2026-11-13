@@ -171,7 +171,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     notifyOnComplete: true,
     autoCheckUpdates: true,
     confirmCloseWhileDownloading: true,
-    lastEmail: ''
+    emailHistory: []
   },
   engine: IDLE_ENGINE,
   engineUpdate: null,

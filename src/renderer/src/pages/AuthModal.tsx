@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LoginResult, LoginStatus } from '@shared/types'
 import { useAppStore } from '@renderer/store/app'
@@ -50,14 +50,15 @@ export function AuthModal(): ReactNode {
   const targetId = accounts.activeId
   const target = accounts.accounts.find((view) => view.id === targetId)
 
-  const [email, setEmail] = useState(settings.lastEmail)
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
-  const [remember, setRemember] = useState(Boolean(settings.lastEmail))
   const [step, setStep] = useState<Step>('credentials')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<{ message: string; code: string | null } | null>(null)
   const [checking, setChecking] = useState(false)
+  const [showEmails, setShowEmails] = useState(false)
+  const emailBoxRef = useRef<HTMLDivElement>(null)
 
   // Reset transient state each time the dialog opens - and scrub the password
   // the moment it closes. The dialog stays mounted while hidden (Modal returns
@@ -67,15 +68,35 @@ export function AuthModal(): ReactNode {
     if (!open) {
       setPassword('')
       setCode('')
+      setShowEmails(false)
       return
     }
     setStep('credentials')
+    setEmail('')
     setPassword('')
     setCode('')
     setFailure(null)
     setBusy(false)
-    setEmail(useAppStore.getState().settings.lastEmail)
+    setShowEmails(false)
   }, [open])
+
+  // The custom suggestion panel is outside the input, so close it on an
+  // outside click instead of relying on input blur (clicking Delete would
+  // otherwise close the list before the click lands).
+  useEffect(() => {
+    if (!showEmails) return
+    const onMouseDown = (event: MouseEvent): void => {
+      if (!emailBoxRef.current?.contains(event.target as Node)) setShowEmails(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [showEmails])
+
+  const forgetEmail = async (value: string): Promise<void> => {
+    await updateSettings({
+      emailHistory: settings.emailHistory.filter((entry) => entry !== value)
+    })
+  }
 
   const submit = async (): Promise<void> => {
     if (busy) return
@@ -110,8 +131,15 @@ export function AuthModal(): ReactNode {
 
     if (result.status === 'ok') {
       useAppStore.setState({ pendingAddRestoreId: null })
-      if (remember) await updateSettings({ lastEmail: email.trim() })
-      else if (settings.lastEmail) await updateSettings({ lastEmail: '' })
+      const signedInEmail = email.trim()
+      await updateSettings({
+        emailHistory: [
+          signedInEmail,
+          ...settings.emailHistory.filter(
+            (entry) => entry.toLowerCase() !== signedInEmail.toLowerCase()
+          )
+        ].slice(0, 50)
+      })
       useAppStore.getState().setAccount(result.account)
       setOpen(false)
       toast({ kind: 'success', message: t('auth.success', { email: result.account?.email ?? email }) })
@@ -256,17 +284,73 @@ export function AuthModal(): ReactNode {
             <>
               <label className="flex flex-col gap-1.5">
                 <span className="text-[11.5px] font-medium dim">{t('auth.email')}</span>
-                <input
-                  className="input"
-                  // Apple IDs are often phone numbers (e.g. +86…). `type="email"`
-                  // makes the browser reject those before ipatool ever sees them.
-                  type="text"
-                  value={email}
-                  autoComplete="username"
-                  placeholder={t('auth.emailPlaceholder')}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={busy}
-                />
+                <div ref={emailBoxRef} className="relative">
+                  <input
+                    className="input"
+                    // Apple IDs are often phone numbers (e.g. +86…). `type="email"`
+                    // makes the browser reject those before ipatool ever sees them.
+                    type="text"
+                    value={email}
+                    autoComplete="off"
+                    placeholder={t('auth.emailPlaceholder')}
+                    role="combobox"
+                    aria-expanded={showEmails && settings.emailHistory.length > 0}
+                    aria-controls="auth-email-history"
+                    aria-autocomplete="list"
+                    onChange={(event) => {
+                      setEmail(event.target.value)
+                      if (settings.emailHistory.length > 0) setShowEmails(true)
+                    }}
+                    onFocus={() => {
+                      if (settings.emailHistory.length > 0) setShowEmails(true)
+                    }}
+                    onClick={() => {
+                      if (settings.emailHistory.length > 0) setShowEmails(true)
+                    }}
+                    disabled={busy}
+                  />
+                  {showEmails && settings.emailHistory.length > 0 ? (
+                    <div
+                      id="auth-email-history"
+                      role="listbox"
+                      className="absolute left-0 right-0 top-full z-20 mt-1 max-h-[176px] overflow-y-auto rounded-lg border p-1"
+                      style={{
+                        background: 'var(--bg-elev)',
+                        borderColor: 'var(--border)',
+                        boxShadow: 'var(--shadow)'
+                      }}
+                    >
+                      {settings.emailHistory.map((value) => (
+                        <div
+                          key={value}
+                          className="group flex h-8 items-center rounded px-2 hover:bg-[var(--row-hover)]"
+                        >
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={value === email}
+                            className="mono min-w-0 flex-1 truncate text-left text-[12px]"
+                            onClick={() => {
+                              setEmail(value)
+                              setShowEmails(false)
+                            }}
+                          >
+                            {value}
+                          </button>
+                          <button
+                            type="button"
+                            className="ml-2 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-faint)] opacity-0 transition-opacity hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] focus:opacity-100 group-hover:opacity-100"
+                            aria-label={t('auth.emailHistoryDelete')}
+                            title={t('auth.emailHistoryDelete')}
+                            onClick={() => void forgetEmail(value)}
+                          >
+                            <Icon name="trash" size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </label>
 
               <label className="flex flex-col gap-1.5">
@@ -281,18 +365,6 @@ export function AuthModal(): ReactNode {
                   disabled={busy}
                 />
               </label>
-
-              <label className="flex cursor-pointer items-center gap-2 text-[11.5px] dim">
-                <input
-                  type="checkbox"
-                  style={{ accentColor: 'var(--accent)' }}
-                  checked={remember}
-                  onChange={(event) => setRemember(event.target.checked)}
-                />
-                {t('auth.remember')}
-              </label>
-
-
 
               <p className="text-[11.5px] leading-relaxed faint">{t('auth.slow')}</p>
             </>

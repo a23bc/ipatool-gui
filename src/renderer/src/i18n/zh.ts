@@ -118,7 +118,7 @@ export const zh: Dict = {
   'auth.passwordPlaceholder': '你的 Apple ID 密码',
   'auth.submit': '登录',
   'auth.signingIn': '登录中…',
-  'auth.remember': '记住这个邮箱',
+  'auth.emailHistoryDelete': '删除这个邮箱',
   'auth.2fa.title': '需要双重认证验证码',
   'auth.2fa.body': 'Apple 已向你的受信任设备发送验证码，请输入。',
   'auth.2fa.placeholder': '6 位验证码',

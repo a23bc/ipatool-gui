@@ -48,7 +48,7 @@ const SETTINGS = {
   isolateSessionHome: true, accounts: [], activeAccountId: '', accountCounter: 1,
   verbose: false, theme: 'system', locale: 'system', artworkEnabled: true,
   artworkCountry: 'us', maxLogLines: 2000, resumeQueueOnLaunch: true,
-  notifyOnComplete: true, autoCheckUpdates: true, confirmCloseWhileDownloading: false, lastEmail: ''
+  notifyOnComplete: true, autoCheckUpdates: true, confirmCloseWhileDownloading: false, emailHistory: []
 } as unknown as Settings
 
 const ENGINE: EngineStatus = {

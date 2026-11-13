@@ -122,7 +122,7 @@ export const en = {
   'auth.passwordPlaceholder': 'Your Apple ID password',
   'auth.submit': 'Sign in',
   'auth.signingIn': 'Signing in…',
-  'auth.remember': 'Remember this e-mail',
+  'auth.emailHistoryDelete': 'Remove this e-mail',
   'auth.2fa.title': 'Two-factor code required',
   'auth.2fa.body': 'Apple sent a verification code to your trusted devices. Enter it below.',
   'auth.2fa.placeholder': '6-digit code',

@@ -371,8 +371,8 @@ export interface Settings {
   /** Check GitHub for a newer app release on launch (notification only). */
   autoCheckUpdates: boolean
   confirmCloseWhileDownloading: boolean
-  /** Convenience only - the password is never persisted. */
-  lastEmail: string
+  /** Previously used Apple IDs, newest first; only e-mails, never passwords. */
+  emailHistory: string[]
 }
 
 /* ------------------------------------------------------------------ *
