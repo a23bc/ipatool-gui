@@ -287,6 +287,8 @@ export const zh: Dict = {
   'downloads.progress.remaining': '剩余 {eta}',
   'downloads.progress.done': '完成',
   'downloads.resumeHint': '暂停会保留未完成文件，继续时从断点接着下。',
+  'downloads.reloginRequired': '需要重新登录一次才能下载',
+  'downloads.reloginHint': '用同一个 Apple ID 登录即可，队列和已购记录都会保留。',
   'downloads.deletePartial.title': '丢弃未完成文件？',
   'downloads.deletePartial.body': '下次将从 0 字节重新开始。当长时间暂停后 Apple 拒绝续传范围（HTTP 416）时使用。',
   'downloads.deletePartial.confirm': '丢弃并重新下载',
