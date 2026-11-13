@@ -109,6 +109,11 @@ export function holdModalChrome(): () => void {
   }
 }
 
+/** Re-applies the current modal state after an action that may repaint the OS chrome. */
+export function refreshChromeDimming(): void {
+  syncChromeDimmed(useUiStore.getState)
+}
+
 export const useUiStore = create<UiState>()((set, get) => ({
   view: 'search',
   setView: (view) => {
