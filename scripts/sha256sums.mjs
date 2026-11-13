@@ -23,7 +23,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 /** Artifact extensions that ship to users. Intermediate build output is skipped. */
-const ARTIFACT_SUFFIXES = ['.exe', '.dmg', '.app.tar.gz', '.AppImage', '.deb', '.zip']
+const ARTIFACT_SUFFIXES = ['.exe', '.dmg', '.app.tar.gz', '.AppImage', '.deb', '.zip', '.zsync']
 
 export const MANIFEST_NAME = 'SHA256SUMS.txt'
 
