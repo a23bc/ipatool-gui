@@ -55,7 +55,7 @@
 
 - 全栈 TypeScript，主进程 / preload / 渲染进程共享类型与纯逻辑层，编译期即可发现 IPC 不一致；
 - 渲染层与其它方案同样是 webview，UI 流畅度没有差别；
-- 打包产物覆盖 Windows（NSIS + 便携版）、macOS（dmg）、Linux（AppImage + deb）。
+- 打包产物覆盖 Windows（NSIS + 便携版）、macOS（dmg）、Linux（AppImage + `.zsync` + deb）。
 
 > 若你更想要 Tauri/Wails 的体积，`src/shared/` 与 `src/main/` 的命令构建、输出解析、
 > 队列与引擎逻辑均为平台无关的纯逻辑，可以较直接地移植到 Rust/Go 壳中。
@@ -270,7 +270,7 @@ Windows 产物未签名。
 > macOS 在 CI 上产 **`.app.tar.gz` 运行包**（GitHub 的 macOS runner 无法运行 dmg 所需的
 > `hdiutil attach`，会报 `Device not configured`，故用 `dir` target + tar）；
 > 在真实 Mac 上 `npm run dist:mac` 仍会产 dmg 安装包。
-> 各平台产物：Windows = NSIS 安装包 + portable 运行包 + portable zip（均 x64）；Linux = deb 安装包 + AppImage 运行包（x64 与 arm64 分开打包）。
+> 各平台产物：Windows = NSIS 安装包 + portable 运行包 + portable zip（均 x64）；Linux = deb 安装包 + AppImage 运行包 + AppImage 的 `.zsync` 更新元数据（x64 与 arm64 分开打包）。
 >
 > Draft 不是公开状态，仍需到 Releases 页手动点 Publish 才对外可见。
 > 地下开发阶段只要不勾 `publish`，仓库对外不会留下任何 Release 痕迹。
