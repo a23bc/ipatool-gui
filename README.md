@@ -80,7 +80,7 @@ SmartScreen may warn about an unknown publisher — choose **Run anyway**.
 
 ### Linux
 
-AppImage and deb packages for x64 / arm64.
+AppImage (with a `.zsync` sidecar for AppImageUpdate) and deb packages for x64 / arm64.
 
 ---
 

@@ -71,7 +71,7 @@ SmartScreen 提示「未知发布者」属正常现象，选择「仍要运行�
 
 ### Linux
 
-提供 AppImage 与 deb（x64 / arm64）。
+提供 AppImage（附带用于 AppImageUpdate 的 `.zsync`）与 deb（x64 / arm64）。
 
 ---
 
