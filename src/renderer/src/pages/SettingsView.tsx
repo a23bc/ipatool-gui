@@ -341,12 +341,16 @@ export function SettingsView(): ReactNode {
             </Field>
           ) : null}
 
-          <Toggle
-            checked={settings.isolateSessionHome}
-            onChange={(value) => void update({ isolateSessionHome: value })}
-            label={t('settings.account.isolateHome')}
-            hint={t('settings.account.isolateHomeHelp')}
-          />
+          {appInfo?.platform === 'darwin' ? (
+            <p className="text-[11.5px] leading-relaxed faint">{t('settings.account.macHomeNote')}</p>
+          ) : (
+            <Toggle
+              checked={settings.isolateSessionHome}
+              onChange={(value) => void update({ isolateSessionHome: value })}
+              label={t('settings.account.isolateHome')}
+              hint={t('settings.account.isolateHomeHelp')}
+            />
+          )}
         </Section>
 
         {/* ---------------- downloads ---------------- */}

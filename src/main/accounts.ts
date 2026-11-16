@@ -9,10 +9,11 @@
  *    legacy path whenever it exists, and *renaming it* into the XDG target when
  *    it does not. Both branches make sessions collide, so every invocation gets
  *    an absolute `XDG_STATE_HOME` **and** a sandboxed home directory
- *    (`HOMEDRIVE`/`HOMEPATH` on Windows, `HOME` elsewhere - `machine.HomeDirectory`
- *    is the only consumer of either, so nothing else in ipatool is affected).
- *    The sandbox is also why the user's real `~/.ipatool` is never moved or
- *    deleted: ipatool simply cannot see it.
+ *    (`HOMEDRIVE`/`HOMEPATH` on Windows, `HOME` on Linux). macOS is the exception:
+ *    Keychain Services resolves the login keychain relative to HOME, so a
+ *    sandboxed HOME makes ipatool fail with errSecNoSuchKeychain (-60006). There
+ *    the real HOME is kept and `XDG_STATE_HOME` alone isolates the session; a
+ *    real `~/.ipatool` is reconciled at init like the sandbox-off path.
  *
  * 2. `cmd/common.go` + `cmd/constants.go` open the keyring with the constant
  *    service name `ipatool-auth.service` and the backend order
@@ -223,7 +224,9 @@ export class AccountRegistry extends EventEmitter {
     this.started = true
     const first = sortAccounts(this.list())[0] ?? this.create('')
 
-    if (!settingsStore.getInternal().isolateSessionHome) {
+    // macOS never uses the HOME sandbox (Keychain needs the real home), so it
+    // must reconcile a real ~/.ipatool exactly like the disabled-sandbox path.
+    if (!settingsStore.getInternal().isolateSessionHome || process.platform === 'darwin') {
       this.migration = this.reconcileLegacyState(first)
       await this.migration.catch(() => null)
     }
@@ -400,13 +403,18 @@ export class AccountRegistry extends EventEmitter {
   /**
    * Environment that pins one ipatool invocation to one account.
    *
-   * See the module header: both halves are required. `XDG_STATE_HOME` selects the
-   * cookies and (on the file backend) the credential record; the sandboxed home
-   * removes the legacy fallback that would otherwise override both.
+   * `XDG_STATE_HOME` selects the cookies and (on the file backend) the credential
+   * record; on Windows/Linux the sandboxed home removes the legacy fallback that
+   * would otherwise override both. macOS keeps the real HOME for Keychain.
    */
   envFor(profile: AccountProfile): Record<string, string> {
     const env: Record<string, string> = { XDG_STATE_HOME: stateDirFor(profile.id) }
     if (!settingsStore.getInternal().isolateSessionHome) return env
+
+    // macOS must keep the real HOME: Keychain Services resolves the login
+    // keychain relative to it, and a sandboxed HOME makes ipatool fail with
+    // errSecNoSuchKeychain (-60006). XDG_STATE_HOME still isolates the session.
+    if (process.platform === 'darwin') return env
 
     const home = homeDirFor(profile.id)
     if (process.platform === 'win32') {

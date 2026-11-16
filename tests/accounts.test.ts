@@ -151,9 +151,9 @@ describe('credential store policy', () => {
 
   it('sandboxes the variables ipatool actually reads for a home directory', () => {
     // `machine.HomeDirectory()` joins HOMEDRIVE and HOMEPATH on Windows and reads
-    // HOME everywhere else - those are the only variables that matter.
+    // HOME on Linux. macOS keeps the real HOME for Keychain Services.
     expect(sandboxHomeFor('win32')).toEqual(['HOMEDRIVE', 'HOMEPATH'])
-    expect(sandboxHomeFor('darwin')).toEqual(['HOME'])
+    expect(sandboxHomeFor('darwin')).toEqual([])
     expect(sandboxHomeFor('linux')).toEqual(['HOME'])
   })
 })
