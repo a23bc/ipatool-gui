@@ -54,16 +54,17 @@ jobs:
           # README advertised "ad-hoc signed". Both mac legs now sign ad-hoc, so
           # the documented behaviour is true for both and the verify step can be
           # a hard gate.
-          # macos-14 started a brownout ahead of its November 2026 retirement,
-          # which cancels jobs right after they are picked up. macos-15 is the
-          # current image; it can still cross-build the x64 bundle.
+          # macos-14 started a brownout ahead of its November 2026 retirement.
+          # macos-15 can cross-build the x64 bundle; the arm64 job has repeatedly
+          # failed to acquire a macos-15 runner (15-minute acquisition timeout),
+          # so it uses the current macos-26 arm64 image instead.
           - os: macos-15
             platform: mac
             arch: x64
             flag: '--x64'
             extra: '-c.mac.target=dir -c.mac.identity=-'
             label: 'macOS x64'
-          - os: macos-15
+          - os: macos-26
             platform: mac
             arch: arm64
             flag: '--arm64'
