@@ -186,7 +186,10 @@ export function probableCredentialSlot(platform: NodePlatform): CredentialSlot {
 
 /** Environment fragment written when the credential store is the file backend. */
 export function sandboxHomeFor(platform: NodePlatform): Array<'HOME' | 'HOMEDRIVE' | 'HOMEPATH'> {
-  return platform === 'win32' ? ['HOMEDRIVE', 'HOMEPATH'] : ['HOME']
+  if (platform === 'win32') return ['HOMEDRIVE', 'HOMEPATH']
+  // macOS keeps HOME for Keychain Services; XDG_STATE_HOME isolates sessions.
+  if (platform === 'darwin') return []
+  return ['HOME']
 }
 
 /* ------------------------------------------------------------------ *

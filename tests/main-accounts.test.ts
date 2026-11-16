@@ -183,6 +183,10 @@ describe('AccountRegistry: naming and env', () => {
     if (process.platform === 'win32') {
       expect(`${env.HOMEDRIVE}${env.HOMEPATH}`).toBe(home)
       expect(env.HOME).toBeUndefined()
+    } else if (process.platform === 'darwin') {
+      // Keychain Services needs the real HOME; XDG_STATE_HOME does the isolation.
+      expect(env.HOME).toBeUndefined()
+      expect(env.HOMEDRIVE).toBeUndefined()
     } else {
       expect(env.HOME).toBe(home)
     }
@@ -255,6 +259,8 @@ describe('AccountRegistry: leases', () => {
   it('generates a distinct passphrase per account and reuses it afterwards', async () => {
     const reg = registry()
     await reg.init()
+    // This test is about passphrases, not the macOS shared keychain slot.
+    reg.setCredentialStore(reg.activeId, 'file')
     const first = await reg.acquire()
     const second = await reg.acquire()
     expect(second.passphrase).toBe(first.passphrase)
@@ -265,6 +271,7 @@ describe('AccountRegistry: leases', () => {
     const other = reg.add()
     expect(other.id).not.toBe(first.account.id)
 
+    reg.setCredentialStore(other.id, 'file')
     const third = await reg.acquire(other.id)
     expect(third.passphrase).not.toBe(first.passphrase)
   })

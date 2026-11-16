@@ -387,6 +387,8 @@ export const en = {
   'settings.account.isolateHome': 'Isolate each account\u2019s home directory (recommended)',
   'settings.account.isolateHomeHelp':
     'ipatool prefers ~/.ipatool whenever it exists, which would make every account share one session. Running it with a per-account home directory removes that fallback. Turn this off only if it interferes with a future ipatool build - the app then moves ~/.ipatool aside instead.',
+  'settings.account.macHomeNote':
+    'On macOS, ipatool uses your real home directory so it can reach the login Keychain. Account sessions are still isolated by their own state directories.',
   'settings.account.verbose': 'Verbose ipatool logs',
 
   'settings.downloads.dir': 'Download folder',
