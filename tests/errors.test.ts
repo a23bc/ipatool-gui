@@ -3,6 +3,7 @@ import {
   classifyError,
   isPassphraseRequired,
   isStoreReloginRequired,
+  isStorefrontDiscoveryFailure,
   isTwoFactorRequired,
   shorten
 } from '@shared/ipatool/errors'
@@ -28,6 +29,13 @@ describe('classifyError', () => {
 
   it('recognises a wrong keychain passphrase', () => {
     expect(classifyError('failed to decrypt keyring item').code).toBe('passphrase-invalid')
+  })
+
+  it('recognises a transient storefront discovery failure', () => {
+    expect(
+      isStorefrontDiscoveryFailure('country code is invalid: available storefronts request failed')
+    ).toBe(true)
+    expect(isStorefrontDiscoveryFailure('storefront request failed')).toBe(false)
   })
 
   it('recognises a session that needs Store AMD provisioning again', () => {
