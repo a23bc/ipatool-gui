@@ -57,7 +57,12 @@ import {
   type ProgressSample,
   type ZerologEvent
 } from '../shared/ipatool/parse'
-import { classifyError, shorten, type IpatoolErrorCode } from '../shared/ipatool/errors'
+import {
+  classifyError,
+  isStorefrontDiscoveryFailure,
+  shorten,
+  type IpatoolErrorCode
+} from '../shared/ipatool/errors'
 import { secretValuesFromArgs } from '../shared/redact'
 import { accounts } from './accounts'
 import { engineManager } from './engine'
@@ -186,6 +191,23 @@ function normalizeApps(event: ZerologEvent | null): StoreApp[] {
 function secretList(passphrase: string, extra: string[] = []): string[] {
   const secrets = [passphrase, ...extra].filter((s) => typeof s === 'string' && s.length > 0)
   return Array.from(new Set(secrets))
+}
+
+const STOREFRONT_RETRY_DELAYS_MS = [1_000, 2_500]
+
+/** Retries only the transient storefront-discovery failure, never a user error. */
+async function withStorefrontRetry<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await run()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (attempt >= STOREFRONT_RETRY_DELAYS_MS.length || !isStorefrontDiscoveryFailure(message)) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, STOREFRONT_RETRY_DELAYS_MS[attempt]))
+    }
+  }
 }
 
 export class IpatoolApi {
@@ -436,21 +458,23 @@ export class IpatoolApi {
    * ---------------------------------------------------------------- */
 
   async search(term: string, limit?: number, platform?: Platform): Promise<SearchResult> {
-    const settings = settingsStore.getInternal()
-    const result = await this.execute({
-      kind: 'search',
-      label: `Search "${term}"`,
-      args: searchArgs(term, {
-        limit: limit ?? settings.searchLimit,
-        platform: platform ?? settings.defaultPlatform
-      }),
-      timeoutMs: 90_000
+    return withStorefrontRetry(async () => {
+      const settings = settingsStore.getInternal()
+      const result = await this.execute({
+        kind: 'search',
+        label: `Search "${term}"`,
+        args: searchArgs(term, {
+          limit: limit ?? settings.searchLimit,
+          platform: platform ?? settings.defaultPlatform
+        }),
+        timeoutMs: 90_000
+      })
+      const success = this.assertSuccess(result, 'Search failed')
+      return {
+        count: readNumber(success, 'count') ?? normalizeApps(success).length,
+        apps: normalizeApps(success)
+      }
     })
-    const success = this.assertSuccess(result, 'Search failed')
-    return {
-      count: readNumber(success, 'count') ?? normalizeApps(success).length,
-      apps: normalizeApps(success)
-    }
   }
 
   async listVersions(selector: AppSelector, platform?: Platform): Promise<VersionsResult> {
@@ -492,25 +516,27 @@ export class IpatoolApi {
   }
 
   async listPurchases(page = 1, maxResults?: number, platform?: Platform): Promise<PurchasesResult> {
-    const settings = settingsStore.getInternal()
-    const result = await this.execute({
-      kind: 'purchases',
-      label: `Purchases (page ${page})`,
-      args: listPurchasesArgs({
-        page,
-        maxResults: maxResults ?? settings.purchasesPageSize,
-        platform: platform ?? settings.defaultPlatform
-      }),
-      timeoutMs: 120_000
+    return withStorefrontRetry(async () => {
+      const settings = settingsStore.getInternal()
+      const result = await this.execute({
+        kind: 'purchases',
+        label: `Purchases (page ${page})`,
+        args: listPurchasesArgs({
+          page,
+          maxResults: maxResults ?? settings.purchasesPageSize,
+          platform: platform ?? settings.defaultPlatform
+        }),
+        timeoutMs: 120_000
+      })
+      const success = this.assertSuccess(result, 'Could not list purchases')
+      const apps = normalizeApps(success)
+      return {
+        count: readNumber(success, 'count') ?? apps.length,
+        totalCount: readNumber(success, 'totalCount') ?? apps.length,
+        page: readNumber(success, 'page') ?? page,
+        apps
+      }
     })
-    const success = this.assertSuccess(result, 'Could not list purchases')
-    const apps = normalizeApps(success)
-    return {
-      count: readNumber(success, 'count') ?? apps.length,
-      totalCount: readNumber(success, 'totalCount') ?? apps.length,
-      page: readNumber(success, 'page') ?? page,
-      apps
-    }
   }
 
   async purchase(selector: AppSelector, platform?: Platform): Promise<PurchaseOutcome> {
@@ -545,29 +571,31 @@ export class IpatoolApi {
     onProgress: (sample: ProgressSample) => void,
     onTask?: (taskId: string) => void
   ): Promise<DownloadOutcome> {
-    const result = await this.execute({
-      kind: 'download',
-      label: 'Download',
-      interactive: true,
-      cwd: options.output || undefined,
-      accountId: options.accountId,
-      args: downloadArgs({
-        ...options.selector,
-        output: options.output,
-        externalVersionID: options.externalVersionID,
-        platform: options.platform,
-        purchase: options.purchase
-      }),
-      onProgress,
-      onTask,
-      timeoutMs: 0
-    })
+    return withStorefrontRetry(async () => {
+      const result = await this.execute({
+        kind: 'download',
+        label: 'Download',
+        interactive: true,
+        cwd: options.output || undefined,
+        accountId: options.accountId,
+        args: downloadArgs({
+          ...options.selector,
+          output: options.output,
+          externalVersionID: options.externalVersionID,
+          platform: options.platform,
+          purchase: options.purchase
+        }),
+        onProgress,
+        onTask,
+        timeoutMs: 0
+      })
 
-    const success = this.assertSuccess(result, 'Download failed')
-    return {
-      output: readString(success, 'output'),
-      purchased: success.purchased === true
-    }
+      const success = this.assertSuccess(result, 'Download failed')
+      return {
+        output: readString(success, 'output'),
+        purchased: success.purchased === true
+      }
+    })
   }
 
   /** Raw passthrough for the power-user console. */

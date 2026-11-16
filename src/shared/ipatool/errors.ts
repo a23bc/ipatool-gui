@@ -321,6 +321,14 @@ export function isStoreReloginRequired(...parts: Array<string | null | undefined
   return /store AMD state is not provisioned/i.test(haystack(parts))
 }
 
+/**
+ * ipatool 2.8.1 discovers storefronts per invocation. That Apple endpoint is
+ * occasionally unavailable; the command is safe to retry after a short delay.
+ */
+export function isStorefrontDiscoveryFailure(...parts: Array<string | null | undefined>): boolean {
+  return /available storefronts request failed|country code is invalid/i.test(haystack(parts))
+}
+
 /** Truncates very long messages (Apple sometimes returns whole plists). */
 export function shorten(message: string, max = 400): string {
   if (message.length <= max) return message
